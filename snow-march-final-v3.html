@@ -1,0 +1,4164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#d8d9d3">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="jiajinshan-build" content="20260907-76">
+  <title>翻越夹金山｜互动章节</title>
+  <link rel="preload" href="video-inputs/storyboards/00-opening.jpg" as="image">
+  <style>
+    /* 原版字体重新按当前完整文案生成子集。两份字体覆盖同一批汉字与标点，
+       PC 和移动端直接加载相同字形，不再依赖系统字体，也不会在一句中逐字回退。 */
+    @font-face {
+      font-family: "JJS Kai";
+      src: url("assets/fonts/kai-subset-v2.woff2") format("woff2");
+      font-weight: 400 700;
+      font-display: block;
+    }
+
+    @font-face {
+      font-family: "JJS Fangsong";
+      src: url("assets/fonts/fangsong-subset-v2.woff2") format("woff2");
+      font-weight: 400 700;
+      font-display: block;
+    }
+
+    :root {
+      --ink: #222826;
+      --ink-soft: rgba(29, 36, 34, .68);
+      --snow: #e3e3dc;
+      --paper: #d7d8d2;
+      --red: #793e35;
+      --red-bright: #a55b4d;
+      --line: rgba(238, 238, 228, .38);
+      --ease: cubic-bezier(.22, .8, .22, 1);
+
+      --font-body: "JJS Fangsong", "FangSong", "STFangsong", serif;
+      --font-kai: "JJS Kai", "Kaiti SC", "STKaiti", "KaiTi", serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #131817;
+      color: #f1f0e9;
+      overscroll-behavior: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      /* iOS 上长按文字会震一下并弹出「拷贝」气泡。长按是本页的核心交互，必须整体禁掉。
+         -webkit-touch-callout 管气泡，user-select 管选中，两个都要写。 */
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      user-select: none;
+    }
+
+    body {
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button { font: inherit; }
+
+    .app {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      isolation: isolate;
+      background:
+        radial-gradient(circle at 58% 40%, #56615e 0, #252c2a 43%, #111615 100%);
+    }
+
+    /* ===== 设计稿 1280×720，整体等比缩放 =====
+       页面内所有字号、间距都是这张设计稿上的固定像素，不用 vw / vh / clamp。
+       手机和 PC 的差别只有一个整体缩放系数 --fit，任何元素的相对关系都不会变。
+       之前用 vw 做字号，视口比例一变每个元素各缩各的，布局必然走形。 */
+    .stage {
+      /* 绝对居中 + 缩放。不能靠 grid 的 place-items: center——
+         布局盒 1280×720 比视口大时，浏览器会退回安全对齐，把它顶到左上角。 */
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 1280px;
+      height: 720px;
+      transform: translate(-50%, -50%) scale(var(--fit, 1));
+      transform-origin: center center;
+      overflow: hidden;
+      background: #cfd1cd;
+      box-shadow: 0 0 90px rgba(0, 0, 0, .58);
+      user-select: none;
+    }
+
+    .film,
+    .poster,
+    .wash,
+    .shade,
+    .grain,
+    .content {
+      position: absolute;
+      inset: 0;
+    }
+
+    .film {
+      z-index: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transform: scale(1.002);
+      background: #d7d8d2;
+    }
+
+    .film.is-active { z-index: 1; opacity: 1; }
+
+    .poster {
+      z-index: 2;
+      background: url("video-inputs/storyboards/00-opening.jpg") center / cover no-repeat;
+      transition: opacity .8s var(--ease), transform 1.8s var(--ease);
+    }
+
+    .poster.is-gone {
+      opacity: 0;
+      transform: scale(1.025);
+      pointer-events: none;
+    }
+
+    .wash {
+      z-index: 3;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(229, 230, 224, .08), transparent 24%, transparent 74%, rgba(215, 218, 214, .14)),
+        linear-gradient(180deg, rgba(237, 237, 229, .08), transparent 30%, rgba(19, 24, 23, .12));
+      mix-blend-mode: screen;
+    }
+
+    .shade {
+      z-index: 4;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(15, 19, 18, .36), transparent 42%),
+        linear-gradient(180deg, rgba(13, 17, 16, .16), transparent 35%, rgba(10, 14, 13, .22));
+      transition: opacity .7s ease;
+    }
+
+    .grain {
+      z-index: 5;
+      pointer-events: none;
+      opacity: .13;
+      mix-blend-mode: multiply;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.76' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
+      animation: grainShift .6s steps(2) infinite;
+    }
+
+    @keyframes grainShift {
+      0% { transform: translate3d(-1%, -1%, 0); }
+      33% { transform: translate3d(1%, 0, 0); }
+      66% { transform: translate3d(0, 1%, 0); }
+      100% { transform: translate3d(-1%, -1%, 0); }
+    }
+
+    .content {
+      z-index: 15;
+      pointer-events: none;
+      padding:
+        max(22px, env(safe-area-inset-top))
+        max(28px, env(safe-area-inset-right))
+        max(22px, env(safe-area-inset-bottom))
+        max(28px, env(safe-area-inset-left));
+    }
+
+
+
+
+
+    .opening {
+      position: absolute;
+      z-index: 10;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      padding-left: 102px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .8s ease, transform 1s var(--ease);
+    }
+
+    /* 片名只在背景文字页结束后出现；写进首屏 CSS，避免脚本执行前闪现。 */
+    .app.is-title-card .opening { opacity: 1; }
+
+    .opening { transition: opacity .9s ease; }
+
+    .app.is-title-card .opening.is-gone {
+      opacity: 0;
+      transform: translateY(-10px);
+      pointer-events: none;
+    }
+
+    .title-block {
+      width: 538px;
+      margin-top: -14px;
+      text-shadow: 0 2px 20px rgba(18, 24, 22, .28);
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      color: rgba(34, 40, 38, .72);
+      font-size: 24px;
+      letter-spacing: .26em;
+      font-weight: 600;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 38px;
+      height: 1px;
+      background: var(--red);
+    }
+
+    h1 {
+      margin: 0;
+      color: #252d2a;
+      font-family: var(--font-kai);
+      font-size: 105px;
+      font-weight: 500;
+      line-height: 1.02;
+      letter-spacing: -.01em;
+    }
+
+    .title-preload {
+      min-height: 30px;
+      margin: 24px 0 0 4px;
+      color: rgba(38, 46, 43, .64);
+      font-size: 22px;
+      letter-spacing: .16em;
+      opacity: 0;
+      transition: opacity .35s ease;
+    }
+
+    .title-preload.is-visible { opacity: 1; }
+
+    .subtitle {
+      margin: 24px 0 30px 3px;
+      color: rgba(34, 40, 38, .7);
+      font-size: 26px;
+      letter-spacing: .16em;
+    }
+
+    .enter {
+      position: relative;
+      display: inline-grid;
+      grid-template-columns: 42px auto;
+      align-items: center;
+      gap: 13px;
+      padding: 9px 14px 9px 0;
+      border: 0;
+      color: #262e2b;
+      background: transparent;
+      cursor: default;
+      letter-spacing: .18em;
+      font-size: 26px;
+    }
+
+    .opening.is-auto .enter { pointer-events: none; }
+
+    .enter .seal {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border: 1px solid rgba(104, 49, 41, .64);
+      background: rgba(121, 62, 53, .88);
+      color: #ebe7dc;
+      font-family: var(--font-kai);
+      font-size: 32px;
+      transform: rotate(-2deg);
+      transition: transform .35s var(--ease), background .35s ease;
+    }
+
+    .enter:hover .seal,
+    .enter:focus-visible .seal { transform: rotate(0) scale(1.06); background: #8b463b; }
+    .enter:focus-visible { outline: 1px solid rgba(42, 49, 46, .5); outline-offset: 8px; }
+
+    .sound {
+      position: absolute;
+      z-index: 12;
+      top: max(20px, env(safe-area-inset-top));
+      right: max(24px, env(safe-area-inset-right));
+      display: none;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 0;
+      border: 0;
+      color: rgba(246, 245, 236, .86);
+      background: transparent;
+      text-shadow: 0 1px 7px rgba(0, 0, 0, .55);
+      cursor: pointer;
+      pointer-events: auto;
+      font-size: 22px;
+      letter-spacing: .15em;
+    }
+
+    .app.is-playing .sound { display: flex; }
+
+    .sound::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border: 1px solid currentColor;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 0 4px rgba(255, 255, 255, .08);
+    }
+
+    .sound.is-muted::before { background: transparent; box-shadow: none; }
+
+    @keyframes breathe {
+      0%, 100% { opacity: .55; transform: scale(.82); }
+      50% { opacity: 1; transform: scale(1.08); }
+    }
+
+    .interaction {
+      position: absolute;
+      z-index: 14;
+      inset: 0;
+      display: none;
+      pointer-events: none;
+    }
+
+    .app.is-waiting .interaction { display: block; }
+
+    .hotspot {
+      position: absolute;
+      /* 直接使用成片的 1280×720 像素坐标。
+         舞台始终统一等比缩放，因此 PC、横屏手机和强制旋转后的竖屏手机
+         都会与视频同比例移动，不再受视口宽高比或百分比换算影响。 */
+      left: var(--hotspot-x, 530px);
+      top: var(--hotspot-y, 484px);
+      width: var(--hotspot-w, 18%);
+      height: var(--hotspot-h, 24%);
+      transform: translate(-50%, -50%);
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    .interaction[data-target="chili"] {
+      --hotspot-x: 530px;
+      --hotspot-y: 484px;
+    }
+
+    .interaction[data-target="stick"] {
+      --hotspot-x: 365px;
+      --hotspot-y: 400px;
+    }
+
+    .hotspot::before,
+    .hotspot::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      border: 1px solid rgba(245, 235, 219, .78);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .hotspot::before {
+      width: 38px;
+      height: 38px;
+      background: rgba(121, 62, 53, .12);
+      box-shadow: 0 0 28px rgba(128, 70, 56, .3);
+    }
+
+    .hotspot::after {
+      width: 60px;
+      height: 60px;
+      opacity: 0;
+      animation: ripple 1.8s ease-out infinite;
+    }
+
+    @keyframes ripple {
+      0% { width: 32px; height: 32px; opacity: .72; }
+      100% { width: 86px; height: 86px; opacity: 0; }
+    }
+
+    .hotspot:focus-visible { outline: 2px solid #eee9dc; outline-offset: 8px; }
+
+    .prompt {
+      position: absolute;
+      left: 50%;
+      bottom: 8.5%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: rgba(248, 246, 238, .94);
+      text-shadow: 0 2px 12px rgba(0, 0, 0, .72);
+      font-size: 32px;
+      letter-spacing: .2em;
+      white-space: nowrap;
+      animation: promptIn .8s var(--ease) both;
+    }
+
+    .prompt::before,
+    .prompt::after {
+      content: "";
+      width: 32px;
+      height: 1px;
+      background: rgba(241, 238, 226, .55);
+    }
+
+    @keyframes promptIn {
+      from { opacity: 0; transform: translate(-50%, 8px); }
+    }
+
+    /* 时空坐标卡：固定左上角。后续所有段落的位置信息都用这一处，不再另起位置 */
+    .location-card {
+      position: absolute;
+      z-index: 13;
+      left: max(28px, env(safe-area-inset-left));
+      top: max(22px, env(safe-area-inset-top));
+      max-width: 340px;
+      padding-left: 14px;
+      border-left: 2px solid var(--red);
+      opacity: 0;
+      transform: translateY(-10px);
+      pointer-events: none;
+      transition: opacity .7s ease, transform .7s var(--ease);
+      text-shadow: 0 2px 12px rgba(0, 0, 0, .7);
+    }
+
+    .location-card.is-visible { opacity: 1; transform: none; }
+    .location-card strong { display: block; font-size: 30px; letter-spacing: .14em; }
+    .location-card span { display: block; margin-top: 6px; color: rgba(244, 242, 232, .72); font-size: 22px; letter-spacing: .18em; }
+
+    .story-sequence {
+      position: absolute;
+      z-index: 10;
+      inset: 0;
+      display: none;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    .app.is-playing .story-sequence { display: block; }
+
+    .story-frame {
+      position: absolute;
+      inset: -1%;
+      width: 102%;
+      height: 102%;
+      object-fit: cover;
+      opacity: 0;
+      transform: scale(1.035);
+      transition: opacity 1s ease, transform 5.5s linear;
+    }
+
+    .story-frame.is-visible {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .story-frame.pan-up.is-visible { transform: translate3d(0, -1.2%, 0) scale(1.025); }
+    .story-frame.pan-right.is-visible { transform: translate3d(1%, 0, 0) scale(1.025); }
+
+    .storm {
+      position: absolute;
+      z-index: 2;
+      inset: -20%;
+      opacity: 0;
+      pointer-events: none;
+      background: none;
+      transition: opacity .5s ease;
+    }
+
+    .app.is-marching .storm,
+    .app.is-story .storm,
+    .app.is-rescue .storm,
+    .app.is-confirmed-end .storm { opacity: calc(.12 + var(--storm, .25)); }
+
+    .hold-panel,
+    .rescue-panel {
+      position: absolute;
+      z-index: 14;
+      inset: 0;
+      display: none;
+      pointer-events: none;
+    }
+
+    .app.is-marching .hold-panel,
+    .app.is-steps .hold-panel,
+    .app.is-rescue .rescue-panel { display: block; }
+
+    /* 桌面端进入长按节点时必须立即看见控件，不能只剩一张暂停画面。 */
+    .app.is-steps .hold-panel {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: none;
+    }
+
+    .hold-button {
+      /* 长按按钮：彻底关掉浏览器对触摸的默认处理，
+         否则 iOS 会把「按住不放」理解成想选中按钮上的文字 */
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: none;
+      position: absolute;
+      left: 50%;
+      bottom: 7.5%;
+      width: 164px;
+      height: 164px;
+      padding: 0;
+      border: 0;
+      transform: translateX(-50%);
+      color: #f3f0e5;
+      background: transparent;
+      cursor: pointer;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    .hold-button svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .48));
+    }
+
+    .hold-button circle { fill: none; stroke-width: 1.5; }
+    .hold-button .ring-base { stroke: rgba(244, 241, 230, .32); }
+    .hold-button .ring-progress {
+      stroke: rgba(247, 243, 231, .95);
+      stroke-linecap: round;
+      stroke-dasharray: 289;
+      stroke-dashoffset: 289;
+    }
+
+    .hold-copy {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-content: center;
+      gap: 5px;
+      text-align: center;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, .7);
+    }
+
+    .hold-copy strong { font-size: 26px; font-weight: 500; letter-spacing: .12em; white-space: nowrap; }
+    .hold-copy small { font-size: 22px; letter-spacing: .2em; opacity: .72; white-space: nowrap; }
+
+
+
+
+    .beat-caption {
+      position: absolute;
+      z-index: 13;
+      left: 50%;
+      bottom: 9%;
+      width: max-content;
+      max-width: 1100px;
+      box-sizing: border-box;
+      transform: translate(-50%, 10px);
+      padding: 8px 14px;
+      color: rgba(249, 247, 239, .95);
+      background: rgba(22, 28, 26, .24);
+      opacity: 0;
+      text-align: center;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, .72);
+      font-size: 30px;
+      line-height: 1.55;
+      letter-spacing: .16em;
+      /* 字幕文案里的换行是经过编排的语义停顿，不能让浏览器折叠成空格。 */
+      white-space: pre-line;
+      transition: opacity .55s ease, transform .55s var(--ease);
+    }
+
+    .beat-caption.is-visible { opacity: 1; transform: translate(-50%, 0); }
+    .beat-caption.is-single-line { white-space: nowrap; }
+
+    /* 长按按钮占着底部中央（164px 高、底距 7.5%，顶端约在 30% 处），
+       有按钮的拍，文字必须整体让到它上面。
+       条件与 .app.is-marching .hold-panel 一致——两者必须同进同退。 */
+    .app.is-marching .beat-caption { bottom: 34%; }
+    .app.is-marching .dialogue { bottom: 34%; }
+
+    /* ===== 飘雪：用实拍素材，不用 CSS 画斜线 ===== */
+    .snowfall {
+      position: absolute;
+      z-index: 5;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      mix-blend-mode: screen;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 1.1s ease;
+    }
+
+    /* 风雪强度跟着行进进度走：越往上走雪越大 */
+    .app.is-playing .snowfall { opacity: .3; }
+    .app.is-marching .snowfall { opacity: calc(.28 + var(--hold, 0) * .46); }
+
+    /* ===== 台词层：人物说的话，与旁白视觉上必须能一眼区分 ===== */
+    .dialogue {
+      position: absolute;
+      z-index: 14;
+      left: 50%;
+      bottom: 15%;
+      /* 绝对定位只给了 left，浏览器会把可用宽度算成「包含块宽 - left」= 640px，
+         max-width 因此形同虚设，一句 18 字的台词硬被折成两行。
+         用 max-content 让宽度由内容本身决定，再由 max-width 封顶。 */
+      width: max-content;
+      /* 横屏两侧仍有余量，正文优先在两行内铺开。 */
+      max-width: 1100px;
+      transform: translate(-50%, 12px);
+      padding: 18px 46px 18px 26px;
+      color: #f7f4ea;
+      /* 向右渐隐，不做成一块压在画面上的实心矩形 */
+      background: linear-gradient(100deg,
+        rgba(16, 21, 19, .60) 0%,
+        rgba(16, 21, 19, .44) 52%,
+        rgba(16, 21, 19, .08) 100%);
+      border-left: 2px solid var(--red-bright);
+      opacity: 0;
+      text-align: left;
+      text-shadow: 0 2px 12px rgba(0, 0, 0, .78);
+      font-family: var(--font-kai);
+      font-size: 34px;
+      line-height: 1.72;
+      letter-spacing: .12em;
+      white-space: pre-line;
+      /* 台词块只负责阅读，不承载任何点击入口，避免遮住画面交互热区。 */
+      pointer-events: none;
+      transition: opacity .5s ease, transform .5s var(--ease);
+    }
+
+    .dialogue.is-visible { opacity: 1; transform: translate(-50%, 0); }
+
+    /* 雪山段整体偏白，按钮需要自带底衬，否则白字压白雪看不清 */
+    .hold-button {
+      background: radial-gradient(circle, rgba(16, 21, 19, .46) 0%, rgba(16, 21, 19, .3) 62%, transparent 74%);
+      text-shadow: 0 1px 8px rgba(0, 0, 0, .85);
+    }
+    .hold-button .ring-base { stroke: rgba(255, 255, 255, .5); }
+
+    /* 台词本体：忽略数据里的人工换行，利用横向空间自然排版，避免无谓的三行卡片。 */
+    .dialogue .say {
+      display: block;
+      white-space: normal;
+    }
+
+    /* ===== 顶部时间条：上午九时 → 下午三时 ===== */
+    .timebar {
+      position: absolute;
+      z-index: 12;
+      top: 18px;
+      left: 50%;
+      width: 460px;
+      transform: translateX(-50%);
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 12px;
+      opacity: 0;
+      transition: opacity .7s ease;
+      pointer-events: none;
+    }
+
+    .app.is-playing .timebar { opacity: .9; }
+
+    .timebar b {
+      color: rgba(240, 238, 228, .78);
+      font-weight: 400;
+      font-size: 22px;
+      letter-spacing: .18em;
+      text-shadow: 0 1px 6px rgba(0, 0, 0, .6);
+    }
+
+    .timebar .track {
+      position: relative;
+      height: 1px;
+      background: rgba(238, 238, 228, .3);
+    }
+
+    .timebar .track::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: calc(var(--clock, 0) * 100%);
+      background: rgba(233, 202, 190, .85);
+      will-change: width;
+    }
+
+    .timebar .cursor {
+      position: absolute;
+      top: 50%;
+      left: calc(var(--clock, 0) * 100%);
+      width: 7px;
+      height: 7px;
+      margin: -3.5px 0 0 -3.5px;
+      border-radius: 50%;
+      background: var(--red-bright);
+      box-shadow: 0 0 0 3px rgba(165, 91, 77, .26);
+      will-change: left;
+    }
+
+    /* ===== 开场背景交代 ===== */
+    .prologue {
+      position: absolute;
+      z-index: 30;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 43px 102px;
+      background: transparent;
+      transition: opacity .8s ease;
+    }
+
+    .prologue.is-gone { opacity: 0; pointer-events: none; }
+
+    /* 背景交代期间，底下的开屏必须隐身，否则会和交代文字叠在一起 */
+    .app.prologue-on .opening { opacity: 0; pointer-events: none; }
+
+    /* 开场两屏（背景交代 + 开屏）共用的雪山循环背景 */
+    /* 循环背景。iOS 走的 mp4 有 12 MB，网络慢时首屏会是一片空白，
+       所以默认就把这一层显示出来——视频没到时浏览器会渲染 poster（57 KB 首帧图），
+       视频到了自然接上，观众看不出切换。 */
+    .scene-loop {
+      position: absolute;
+      z-index: 2;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 1;
+      transition: opacity 1.2s ease;
+      pointer-events: none;
+      background: url("assets/prologue-poster.jpg") center / cover no-repeat;
+    }
+
+    .scene-loop.is-ready { opacity: 1; }
+    /* 一旦进入正片就永久退场。之前只列举了几个状态，
+       结果行进段（is-marching）没被覆盖到，山景背景盖住了第一人称的行军画面。 */
+    .scene-loop.is-hidden { opacity: 0 !important; }
+
+    /* 不加任何蒙层：山景直接露出来。
+       文字靠自身的深墨色 + 一圈浅色光晕保证可读，出现之后不再有任何明暗变化。
+       只有在背景视频还没就绪时，才用纯宣纸色兜底，避免文字压在空白上。 */
+    .prologue-veil {
+      position: absolute;
+      inset: 0;
+      background: var(--paper);
+      pointer-events: none;
+      transition: opacity .8s ease;
+    }
+
+    .prologue.has-loop .prologue-veil { opacity: 0; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .prologue-bg { display: none; }
+    }
+
+    .prologue-inner {
+      width: 760px;
+      color: #121714;
+    }
+
+    .prologue p {
+      margin: 0 0 26px;
+      text-shadow:
+        0 0 10px rgba(238, 239, 233, .95),
+        0 0 22px rgba(238, 239, 233, .9),
+        0 1px 2px rgba(238, 239, 233, .95);
+      opacity: 0;
+      transform: translateY(10px);
+      font-size: 32px;
+      line-height: 2.05;
+      letter-spacing: .1em;
+      transition: opacity .9s ease, transform .9s var(--ease);
+    }
+
+    .prologue p.is-visible { opacity: 1; transform: none; }
+    /* 第三段两句都能在横屏内完整放下，只保留 HTML 中的主动换行，禁止单字掉行。 */
+    .prologue p[data-step="2"] { white-space: nowrap; }
+    .prologue p:last-of-type { margin-bottom: 34px; }
+
+    .prologue .skip {
+      display: block;
+      border: 0;
+      padding: 0;
+      margin-left: auto;
+      margin-right: 0;
+      background: transparent;
+      color: rgba(24, 30, 27, .82);
+      text-shadow: 0 0 12px rgba(238, 239, 233, .95);
+      cursor: pointer;
+      font-size: 33px;
+      font-weight: 700;
+      -webkit-text-stroke: .45px currentColor;
+      letter-spacing: .2em;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .6s ease;
+    }
+    .prologue .skip.is-visible {
+      opacity: 1;
+      pointer-events: auto;
+      animation: prologue-skip-breathe 1.35s ease-in-out infinite;
+    }
+    .prologue .skip:hover,
+    .prologue .skip:focus-visible { color: rgba(24, 30, 27, .82); outline: 0; }
+
+    @keyframes prologue-skip-breathe {
+      0%, 100% {
+        text-shadow:
+          0 0 3px rgba(247, 246, 236, .3),
+          0 0 9px rgba(238, 239, 233, .76);
+      }
+      50% {
+        text-shadow:
+          0 0 5px rgba(255, 253, 241, .98),
+          0 0 13px rgba(247, 245, 232, .92),
+          0 0 25px rgba(238, 239, 233, .72);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .prologue .skip.is-visible {
+        animation: none;
+        text-shadow:
+          0 0 5px rgba(255, 253, 241, .82),
+          0 0 14px rgba(238, 239, 233, .9);
+      }
+    }
+
+    /* ===== 史料浮层 ===== */
+    .archive-toggle {
+      position: absolute;
+      z-index: 16;
+      right: 4.5%;
+      bottom: 5.5%;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border: 1px solid rgba(238, 238, 228, .26);
+      background: rgba(18, 24, 22, .5);
+      color: rgba(242, 240, 230, .82);
+      cursor: pointer;
+      font-size: 24px;
+      letter-spacing: .18em;
+    }
+
+    .app.is-playing .archive-toggle { display: flex; }
+
+    .archive-toggle:hover { border-color: rgba(233, 202, 190, .6); }
+
+    .archive {
+      position: absolute;
+      z-index: 40;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 43px 77px;
+      background: rgba(14, 18, 17, .82);
+      backdrop-filter: blur(6px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .45s ease;
+    }
+
+    .archive.is-open { opacity: 1; pointer-events: auto; }
+
+    .archive-card {
+      width: 900px;
+      max-height: 562px;
+      transform: scale(var(--fit, 1));
+      transform-origin: center center;
+      overflow-y: auto;
+      padding: 30px 34px;
+      background: var(--paper);
+      color: #2b322f;
+      scrollbar-gutter: stable;
+    }
+
+    .archive-card h2 {
+      margin: 0 0 6px;
+      font-family: var(--font-kai);
+      font-size: 38px;
+      letter-spacing: .12em;
+    }
+
+    .archive-card .lead {
+      margin: 0 0 20px;
+      color: rgba(43, 50, 47, .62);
+      font-size: 28px;
+      line-height: 1.65;
+      letter-spacing: .06em;
+    }
+
+    .archive-story {
+      counter-reset: archive-part;
+    }
+
+    .archive-story section {
+      position: relative;
+      padding: 17px 0 2px 54px;
+      border-top: 1px solid rgba(43, 50, 47, .14);
+      counter-increment: archive-part;
+    }
+
+    .archive-story section::before {
+      content: counter(archive-part, decimal-leading-zero);
+      position: absolute;
+      top: 19px;
+      left: 0;
+      color: rgba(151, 45, 37, .72);
+      font-family: var(--font-kai);
+      font-size: 25px;
+      letter-spacing: .04em;
+    }
+
+    .archive-story h3 {
+      margin: 0 0 5px;
+      color: var(--red);
+      font-family: var(--font-kai);
+      font-size: 30px;
+      font-weight: 500;
+      letter-spacing: .12em;
+    }
+
+    .archive-story p {
+      margin: 0 0 12px;
+      font-size: 28px;
+      line-height: 1.82;
+      letter-spacing: .045em;
+    }
+
+    .archive-story .archive-quote {
+      margin-top: 7px;
+      padding: 9px 16px;
+      border-left: 3px solid rgba(151, 45, 37, .62);
+      background: rgba(151, 45, 37, .055);
+      font-family: var(--font-kai);
+    }
+
+    .archive-card dl { margin: 0; }
+    .archive-card dt {
+      margin-top: 18px;
+      color: var(--red);
+      font-size: 30px;
+      letter-spacing: .14em;
+    }
+    .archive-card dd {
+      margin: 7px 0 0;
+      font-size: 30px;
+      line-height: 1.9;
+      letter-spacing: .06em;
+    }
+    .archive-card .src {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(43, 50, 47, .18);
+      color: rgba(43, 50, 47, .6);
+      font-size: 26px;
+      line-height: 1.9;
+    }
+    .archive-card .src strong {
+      display: block;
+      margin-bottom: 5px;
+      color: #2b322f;
+      font-weight: 500;
+      letter-spacing: .12em;
+    }
+    .archive-card .src a {
+      color: var(--red);
+      text-decoration-color: rgba(151, 45, 37, .32);
+      text-underline-offset: .16em;
+    }
+    .archive-card .src small {
+      display: block;
+      margin-top: 10px;
+      color: rgba(43, 50, 47, .5);
+      font-size: .9em;
+    }
+
+    .archive-close {
+      margin-top: 22px;
+      padding: 9px 20px;
+      border: 1px solid rgba(43, 50, 47, .3);
+      background: transparent;
+      color: #2b322f;
+      cursor: pointer;
+      letter-spacing: .2em;
+      font-size: 28px;
+    }
+    .archive-close:hover { border-color: var(--red); color: var(--red); }
+
+    .rescue-drag {
+      position: absolute;
+      left: 50%;
+      bottom: 7%;
+      width: 480px;
+      height: 44%;
+      transform: translateX(-50%);
+      border: 0;
+      background: transparent;
+      color: #f4f1e6;
+      cursor: grab;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    .rescue-drag:active { cursor: grabbing; }
+
+    .drag-line {
+      position: absolute;
+      left: 50%;
+      bottom: 15px;
+      width: 1px;
+      height: 116px;
+      background: rgba(244, 241, 230, .38);
+      transform-origin: bottom;
+    }
+
+    .drag-line::after {
+      content: "↑";
+      position: absolute;
+      left: 50%;
+      top: -25px;
+      transform: translateX(-50%);
+      font-size: 30px;
+    }
+
+    .drag-copy {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%);
+      width: 100%;
+      text-align: center;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, .75);
+      font-size: 26px;
+      letter-spacing: .18em;
+    }
+
+    .drag-hand {
+      position: absolute;
+      left: calc(50% - 16px);
+      bottom: 42px;
+      width: 32px;
+      height: 32px;
+      border: 1px solid rgba(244, 241, 230, .82);
+      transform: translateY(var(--drag-y, 0));
+      transition: transform .18s var(--ease);
+    }
+
+    .app.is-dragging .drag-hand { transition: none; }
+
+    .confirmed-stop {
+      position: absolute;
+      z-index: 14;
+      right: max(34px, env(safe-area-inset-right));
+      bottom: max(42px, calc(env(safe-area-inset-bottom) + 24px));
+      display: none;
+      width: 390px;
+      padding: 18px 20px 17px;
+      border-left: 2px solid var(--red);
+      color: rgba(246, 243, 233, .92);
+      background: linear-gradient(90deg, rgba(20, 26, 24, .68), rgba(20, 26, 24, .18));
+      text-shadow: 0 2px 12px rgba(0, 0, 0, .7);
+      backdrop-filter: blur(2px);
+    }
+
+    .app.is-confirmed-end .confirmed-stop {
+      display: block;
+      animation: stopIn .8s var(--ease) both;
+    }
+
+    .confirmed-stop small {
+      display: block;
+      margin-bottom: 8px;
+      color: rgba(242, 239, 228, .62);
+      font-size: 26px;
+      letter-spacing: .28em;
+    }
+
+    .confirmed-stop strong {
+      display: block;
+      font-family: var(--font-kai);
+      font-size: 36px;
+      font-weight: 500;
+      letter-spacing: .08em;
+    }
+
+    .confirmed-stop button {
+      margin-top: 14px;
+      padding: 8px 13px;
+      border: 1px solid rgba(242, 239, 228, .4);
+      color: inherit;
+      background: rgba(21, 27, 25, .2);
+      cursor: pointer;
+      font-size: 26px;
+      letter-spacing: .18em;
+    }
+
+    @keyframes stopIn {
+      from { opacity: 0; transform: translateX(12px); }
+    }
+
+    .summit-line {
+      position: absolute;
+      z-index: 13;
+      left: 50%;
+      top: 50%;
+      width: 1px;
+      height: 0;
+      background: rgba(116, 60, 50, .8);
+      transform: translate(-50%, -50%) rotate(35deg);
+      transition: height 1.4s var(--ease);
+    }
+
+    .app.is-summit .summit-line { height: 202px; }
+
+    .ending {
+      position: absolute;
+      z-index: 16;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      background: rgba(21, 27, 25, .18);
+      backdrop-filter: blur(2px);
+      transition: opacity .8s ease, visibility .8s;
+    }
+
+    .app.is-ended .ending {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .ending-inner {
+      width: 680px;
+      text-align: center;
+      text-shadow: 0 2px 16px rgba(0, 0, 0, .65);
+    }
+
+    .ending-kicker {
+      color: rgba(242, 239, 228, .72);
+      font-size: 26px;
+      letter-spacing: .32em;
+    }
+
+    .ending h2 {
+      margin: 17px 0 12px;
+      font-family: var(--font-kai);
+      font-size: 64px;
+      font-weight: 500;
+      letter-spacing: .04em;
+    }
+
+    .ending p {
+      margin: 0 0 28px;
+      color: rgba(242, 239, 228, .8);
+      font-size: 30px;
+      letter-spacing: .14em;
+    }
+
+    .continue-button {
+      position: relative;
+      min-width: 178px;
+      padding: 13px 25px;
+      border: 1px solid rgba(239, 235, 222, .58);
+      border-radius: 0;
+      color: #f2efe5;
+      background: rgba(27, 34, 32, .38);
+      cursor: pointer;
+      letter-spacing: .22em;
+      transition: background .3s ease, color .3s ease;
+    }
+
+    .continue-button:hover,
+    .continue-button:focus-visible { background: rgba(238, 235, 224, .9); color: #252c2a; outline: 0; }
+
+    .status {
+      position: absolute;
+      z-index: 18;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      display: none;
+      color: rgba(246, 243, 233, .9);
+      text-shadow: 0 2px 14px #000;
+      font-size: 28px;
+      letter-spacing: .18em;
+    }
+
+    .app.is-loading .status { display: block; }
+
+
+
+
+
+
+    /* 背景交代页与主画面同尺寸、同缩放，文字不会落到画面之外的黑边上 */
+    .prologue {
+      inset: auto;
+      top: 50%;
+      left: 50%;
+      width: 1280px;
+      height: 720px;
+      transform: translate(-50%, -50%) scale(var(--fit, 1));
+      transform-origin: center center;
+    }
+
+    /* ===== 占位卡：还没拍的镜头 =====
+       流程要能整条走通，缺的镜头用这张卡撑住，文案和交互照常跑。 */
+    .placeholder {
+      position: absolute;
+      z-index: 6;
+      inset: 0;
+      display: none;
+      place-items: center;
+      background:
+        linear-gradient(180deg, rgba(212, 213, 206, .97), rgba(196, 199, 193, .97));
+    }
+    .app.is-placeholder .placeholder { display: grid; }
+
+    .placeholder-inner {
+      width: 620px;
+      padding: 34px 40px;
+      border: 1px dashed rgba(60, 70, 66, .38);
+      text-align: center;
+      color: rgba(38, 46, 43, .78);
+    }
+    .placeholder-tag {
+      display: inline-block;
+      margin-bottom: 16px;
+      padding: 5px 14px;
+      border: 1px solid rgba(121, 62, 53, .5);
+      color: var(--red);
+      font-size: 22px;
+      letter-spacing: .2em;
+    }
+    .placeholder-inner strong {
+      display: block;
+      font-family: var(--font-kai);
+      font-size: 38px;
+      font-weight: 500;
+      letter-spacing: .06em;
+      color: #262e2b;
+    }
+    .placeholder-inner span {
+      display: block;
+      margin-top: 14px;
+      font-size: 24px;
+      line-height: 1.7;
+      color: rgba(38, 46, 43, .6);
+    }
+
+
+    /* 走到头，按钮悄悄退场，把画面交还给力竭那一下 */
+    .app.is-climb-done .hold-panel {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .5s ease;
+    }
+
+    /* ===== 原地喘气 =====
+       松开手就停在原地喘。第一人称视角下，画面起伏就是胸腔起伏，
+       不需要任何新素材——视频暂停在当前帧，给它一个持续的呼吸动画即可。
+       --pant 随海拔升高而变短：越往上，喘得越急。 */
+    .app.is-panting .film.is-active {
+      animation: pant var(--pant, 2.6s) ease-in-out infinite;
+    }
+    @keyframes pant {
+      0%, 100% { transform: scale(1.002) translateY(0); }
+      42%      { transform: scale(1.018) translateY(1.5%); }
+    }
+
+    /* 喘气时画面稍稍发白、失了点焦——缺氧的样子 */
+    .app.is-panting .wash { opacity: 1; transition: opacity 1.2s ease; }
+    .app.is-panting .shade { opacity: .78; }
+
+
+    /* ===== 雪盲：整片过曝，拉下布条才看得见路 ===== */
+    .blind {
+      position: absolute;
+      z-index: 8;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+      background: rgba(255, 255, 255, .82);
+      transition: opacity 1.4s ease;
+    }
+    .app.is-blind .blind { opacity: 1; }
+    /* 云开后雪面反光逐步吞掉细节。字幕层仍在其上，观众既能感到刺眼，也能读清说明。 */
+    .app.is-glare .blind {
+      opacity: .7;
+      background: radial-gradient(circle at 51% 38%,
+        rgba(255, 255, 255, .98) 0%,
+        rgba(255, 255, 255, .86) 34%,
+        rgba(244, 246, 241, .56) 68%,
+        rgba(235, 238, 232, .24) 100%);
+      mix-blend-mode: screen;
+    }
+    .app.is-blind-slit .blind {
+      opacity: 1;
+      /* 视野收成一条横缝，其余压暗 */
+      background: rgba(14, 18, 17, .74);
+      -webkit-mask-image: linear-gradient(180deg, #000 0 42%, transparent 42% 58%, #000 58% 100%);
+      mask-image: linear-gradient(180deg, #000 0 42%, transparent 42% 58%, #000 58% 100%);
+      transition: opacity .6s ease, background .6s ease;
+    }
+
+    /* ===== 尾卡：一屏一屏地给 ===== */
+    .finale {
+      position: absolute;
+      z-index: 20;
+      /* 多压住几像素，消除整体缩放后舞台边缘的亚像素亮缝。 */
+      inset: -10px;
+      display: grid;
+      place-items: center;
+      padding: 70px 100px;
+      border: 0;
+      outline: 0;
+      background: linear-gradient(180deg, rgba(16, 21, 19, .94), #101513);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      cursor: pointer;
+      transform: translateZ(0);
+      transition: opacity 1.15s ease, visibility 0s linear 1.15s;
+    }
+    .app.is-finale { background: #101513; }
+    .app.is-finale .stage {
+      overflow: visible;
+      background: #101513;
+      border: 0;
+      outline: 0;
+      box-shadow: none;
+    }
+    .app.is-finale .finale {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition: opacity 1.15s ease, visibility 0s;
+    }
+
+    .finale-inner { width: 880px; text-align: center; }
+    .finale p {
+      margin: 0;
+      font-family: var(--font-kai);
+      font-size: 34px;
+      line-height: 1.95;
+      letter-spacing: .06em;
+      color: #f2efe4;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 1s ease, transform 1s var(--ease);
+    }
+    .finale p.is-visible { opacity: 1; transform: none; }
+    .finale p.dim { font-size: 28px; color: rgba(238, 235, 224, .72); }
+    .finale p em {
+      display: block;
+      margin-top: 8px;
+      font-style: normal;
+      font-size: 26px;
+      letter-spacing: .16em;
+      color: rgba(233, 202, 190, .86);
+    }
+
+    .finale-complete {
+      display: grid;
+      justify-items: center;
+      gap: 42px;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 1s ease, transform 1s var(--ease);
+    }
+    .finale-complete.is-visible { opacity: 1; transform: none; }
+    .finale-complete p { opacity: 1; transform: none; }
+    .finale-actions { display: flex; align-items: center; gap: 30px; }
+    .finale-action {
+      min-width: 132px;
+      padding: 11px 24px;
+      border: 1px solid rgba(240, 237, 226, .42);
+      border-radius: 0;
+      background: rgba(16, 21, 19, .18);
+      color: rgba(240, 237, 226, .9);
+      font-size: 23px;
+      letter-spacing: .22em;
+      cursor: pointer;
+      transition: border-color .3s ease, background .3s ease, color .3s ease;
+    }
+    .finale-action:hover,
+    .finale-action:focus-visible {
+      border-color: rgba(240, 237, 226, .86);
+      background: rgba(240, 237, 226, .9);
+      color: #202725;
+      outline: 0;
+    }
+
+    /* 幕标：换幕时短暂出现 */
+    .act-mark {
+      position: absolute;
+      z-index: 16;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-family: var(--font-kai);
+      font-size: 46px;
+      letter-spacing: .3em;
+      color: #f4f1e6;
+      text-shadow: 0 2px 16px rgba(0, 0, 0, .8);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .8s ease;
+    }
+    .act-mark.is-visible { opacity: .92; }
+
+    /* ===== 强制横屏 =====
+       这一章是横屏策划，但不弹「请横过手机」去指挥用户。
+       竖屏时直接把整个页面旋转 90 度铺满屏幕——用户锁了旋转也照样能看完。
+       没锁旋转的用户把手机横过来，系统进入 landscape，下面这段就不生效，走正常布局。
+
+       注意：旋转的是 body，不是 .app。
+       .prologue、.archive 都是 body 的直接子元素，只转 .app 会把它们落下。
+       转 body 就覆盖了所有全屏层，以后新增层也不用再记得补一遍。 */
+    @media (orientation: portrait) {
+      body {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 100vh;
+        height: 100vw;
+        width: 100dvh;
+        height: 100dvw;
+        transform: translate(-50%, -50%) rotate(90deg);
+        transform-origin: center center;
+      }
+
+    }
+
+
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <audio id="ambientWind" src="assets/audio/wind-background-loop.mp3" preload="auto" loop></audio>
+  <audio id="backgroundMusic" src="assets/audio/toward-the-mountains-background-dynamic-v3.mp3" preload="auto"></audio>
+  <audio id="fallSfx" src="assets/audio/fall-impact.mp3" preload="auto"></audio>
+  <audio id="pantingSfx" src="assets/audio/panting-loop-soft-v2.mp3" preload="auto" loop></audio>
+  <audio id="guideColdVoiceSfx" src="assets/audio/mo-rijian-cold-voice-v1.mp3" preload="auto"></audio>
+  <audio id="distantVoiceSfx" src="assets/audio/yang-chengwu-front-distance-v5.mp3"
+    data-mobile-src="assets/audio/yang-chengwu-mobile-distance-v1.mp3" preload="auto"></audio>
+  <audio id="distantLaughSfx" src="assets/audio/men-laughing-front-distance-v3.mp3"
+    data-mobile-src="assets/audio/men-laughing-mobile-distance-v1.mp3" preload="auto"></audio>
+  <main class="app prologue-on" id="app" aria-label="翻越夹金山互动体验">
+    <section class="stage" id="stage" aria-live="polite">
+      <video class="film is-active" id="filmA" playsinline webkit-playsinline preload="auto"
+        poster="video-inputs/storyboards/00-opening.jpg"></video>
+      <video class="film" id="filmB" playsinline webkit-playsinline preload="auto"></video>
+      <video class="film" id="filmC" playsinline webkit-playsinline preload="auto"></video>
+      <div class="poster" id="poster" aria-hidden="true"></div>
+      <video class="scene-loop" id="sceneLoop" muted autoplay loop playsinline webkit-playsinline preload="auto"
+             poster="assets/prologue-poster.jpg" aria-hidden="true"></video>
+      <video class="snowfall" id="snowfall" muted autoplay loop playsinline webkit-playsinline preload="none" aria-hidden="true"></video>
+      <div class="wash" aria-hidden="true"></div>
+      <div class="shade" aria-hidden="true"></div>
+      <div class="grain" aria-hidden="true"></div>
+
+      <section class="opening is-auto" id="opening" aria-labelledby="mainTitle">
+        <div class="title-block">
+          <div class="eyebrow">1935年6月</div>
+          <h1 id="mainTitle">翻越<br>夹金山</h1>
+          <div class="title-preload" id="titlePreload" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <button class="sound is-muted" id="soundButton" type="button" aria-label="开启声音">声音关</button>
+
+      <section class="interaction" id="interaction" aria-label="接过辣椒">
+        <button class="hotspot" id="chiliButton" type="button" aria-label="点击接过辣椒"></button>
+        <div class="prompt" id="tapPrompt">点一下，接过辣椒</div>
+      </section>
+
+      <div class="location-card" id="locationCard" aria-hidden="true">
+        <strong>1935年6月12日 拂晓</strong>
+        <span>四川宝兴 · 硗碛<br>夹金山南麓 海拔约2100米</span>
+      </div>
+
+      <section class="story-sequence" id="storySequence" aria-label="翻越夹金山后半段">
+        <div class="storm" aria-hidden="true"></div>
+        <div class="beat-caption" id="beatCaption"></div>
+      </section>
+
+      <div class="timebar" id="timebar" aria-hidden="true">
+        <b>上午九时</b>
+        <span class="track"><i class="cursor"></i></span>
+        <b>下午三时</b>
+      </div>
+
+      <div class="dialogue" id="dialogue" aria-live="polite"></div>
+
+      <button class="archive-toggle" id="archiveToggle" type="button">史料</button>
+
+      <section class="hold-panel" id="holdPanel" aria-label="长按继续登山">
+        <button class="hold-button" id="holdButton" type="button" aria-label="长按继续前进">
+          <svg viewBox="0 0 106 106" aria-hidden="true">
+            <circle class="ring-base" cx="53" cy="53" r="46"></circle>
+            <circle class="ring-progress" id="ringProgress" cx="53" cy="53" r="46"></circle>
+          </svg>
+          <span class="hold-copy"><strong>按住</strong><small>跟上队伍</small></span>
+        </button>
+      </section>
+
+      <div class="placeholder" id="placeholder" aria-hidden="true">
+        <div class="placeholder-inner">
+          <span class="placeholder-tag" id="placeholderTag">镜头待拍</span>
+          <strong id="placeholderTitle"></strong>
+          <span id="placeholderDesc"></span>
+        </div>
+      </div>
+
+      <div class="blind" id="blind" aria-hidden="true"></div>
+
+
+      <div class="act-mark" id="actMark" aria-hidden="true"></div>
+
+      <section class="finale" id="finale" aria-label="尾声">
+        <div class="finale-inner" id="finaleInner"></div>
+      </section>
+
+      <div class="status" id="status"></div>
+    </section>
+  </main>
+
+  <div class="archive" id="archive" role="dialog" aria-modal="true" aria-label="红军翻越夹金山的史料故事">
+    <div class="archive-card">
+      <h2>翻过第一座大雪山</h2>
+      <p class="lead">从宝兴硗碛到山北达维，先头部队走过的不只是一座山，也是中央红军长征第一次面对高海拔雪山。</p>
+      <article class="archive-story">
+        <section>
+          <h3>大渡河之后，前路又被雪山截断</h3>
+          <p>1935年6月，中央红军渡过大渡河、夺取泸定桥后，经天全、芦山进入宝兴。追兵仍在身后，北面则是横亘川西的夹金山。翻过它，才能抵达懋功，与正在那里接应的红四方面军会合。</p>
+          <p>这是中央红军长征路上的第一座大雪山。夹金山主峰海拔4930米，翻山垭口海拔约4114米；从南麓硗碛到北麓达维，全程约70里。六月的山脚已有草木，山上却仍终年积雪。</p>
+        </section>
+        <section>
+          <h3>躲进山里的青年，回来为红军带路</h3>
+          <p>红军到来时，不少藏族群众一度躲进山里。人们观察后发现，这支队伍不进民房、不随意拿百姓东西，才渐渐放下戒心。19岁的藏族猎人莫日坚熟悉雪山道路，主动站出来为红军当向导。</p>
+          <p>他把山里的规矩告诉战士们：天气说变就变，要抓紧时机越过垭口；山高气薄，不能大声说笑，更不能坐下不走；每个人都要带一根木棍，既用来探雪窝，也能在风雪中彼此拉一把。</p>
+        </section>
+        <section>
+          <h3>能带上山的，只有木棍和几枚辣椒</h3>
+          <p>出发前，队伍在头道桥附近作翻山动员。竹竿和树条被削成拐杖，能找到的干辣椒分到战士手里。另一些回忆还记下了上山前熬辣椒汤的细节：它挡不住真正的严寒，却是物资匮乏时少有的御寒办法。</p>
+          <p>多数战士来自南方，穿的仍是单衣、草鞋或布袜。面对雪山，他们没有棉衣和登山装备，只有一根棍、少量干粮，以及身边的战友。</p>
+        </section>
+        <section>
+          <h3>6月12日，红四团先上山</h3>
+          <p>6月12日，红一军团第二师第四团担任先头部队，从夹金山南麓的硗碛出发。越过林线后，道路很快被白雪吞没。强光照在雪面上，刺得人睁不开眼；空气越来越稀薄，每走一步都要喘很久。</p>
+          <p>临近山顶，天气骤变。乌云压下来，狂风卷着大雪和冰雹迎面砸来。有人跌进雪窝，有人头晕、胸闷，想坐下歇一会儿——可在严寒和缺氧里，一旦停住，便可能再也站不起来。</p>
+        </section>
+        <section>
+          <h3>一根木棍，从探路变成救人的绳</h3>
+          <p>队伍只能彼此照应着往前挪：前面的人留下脚印和路标，后面的人扶住体弱者；有人跌倒，就把木棍递过去，再合力拉起来。回忆中，担架员、炊事员等负重行军的人尤其艰难。他们背着担架、行军锅、粮食和柴火，常常落在队伍后面，也承受着更大的危险。</p>
+          <p class="archive-quote">风雪最紧的时候，政委杨成武用当地“鸟儿也飞不过”的传说鼓动大家：“如今咱们上来了，岂不都成了神仙！”笑声很短，队伍没有停，仍继续向山顶移动。</p>
+        </section>
+        <section>
+          <h3>翻过垭口，山下传来另一支红军的喊声</h3>
+          <p>越过山顶后，战士们顺着积雪覆盖的北坡下滑。当天下午，红四团到达达维附近，与前来接应的红四方面军第九军第二十五师第七十四团一部相遇。最初双方隔着距离辨不清身份，直到“我们是红军”的喊声传来，长途跋涉后的两支队伍终于认出了彼此。</p>
+          <p>这是中央红军与红四方面军先头部队的首次会合。随后几天，中央机关和主力部队陆续循这条路翻越夹金山。6月17日前后，中央领导人抵达达维；至18日，更多部队越过雪山，两支主力红军的会合由山脚的一次相遇，变成十余万人的大会师。</p>
+        </section>
+        <section>
+          <h3>队伍走远后，夹金山留下了一个名字</h3>
+          <p>翻山后，红军送给莫日坚一盏马灯，并借“马灯红”的谐音，为他起了汉名“马登洪”。这个名字被他的家族一直记住。多年后，他的后人说：“从此，我们子子孙孙都姓马。”</p>
+          <p>夹金山并不是长征苦难的终点。此后，红军还要继续翻越一座座雪山、穿过茫茫草地。但在这里，他们第一次证明：在装备极其简陋的情况下，向导的帮助、严格的纪律和人与人之间不肯松开的手，可以把一条几乎不能走的路走通。</p>
+        </section>
+      </article>
+      <div class="src">
+        <strong>史料来源与延伸阅读</strong>
+        <a href="https://www.yaan.gov.cn/xinwen/show/086b7626-2447-4186-bda7-a54c849f22bf.html" target="_blank" rel="noopener noreferrer">雅安市人民政府：《中央红军翻越夹金山》</a>；
+        <a href="https://www.81.cn/js_208592/9874256.html" target="_blank" rel="noopener noreferrer">中国军网：《军史今日6月12日：红军翻越夹金山》</a>；
+        <a href="https://www.cac.gov.cn/2016-08/22/c_1119431608.htm" target="_blank" rel="noopener noreferrer">中央网信办：《翻越夹金山》</a>；
+        <a href="https://dangshi.people.com.cn/n1/2016/1021/c85037-28797261.html" target="_blank" rel="noopener noreferrer">人民网党史频道：《长征与辣椒》</a>；
+        <a href="https://m.cnr.cn/sichuan/news/tsc/20190820/t20190820_524739344.html" target="_blank" rel="noopener noreferrer">中央广播电视总台央广网：《长征诗会·夹金山（二）》</a>。
+        <small>不同回忆对个别时刻与细节的表述略有差异。本页以多份公开史料能够相互印证的时间、部队番号和主要经历为叙事骨架。</small>
+      </div>
+      <button class="archive-close" id="archiveClose" type="button">收起</button>
+    </div>
+  </div>
+
+  <div class="prologue" id="prologue">
+    <div class="prologue-veil" aria-hidden="true"></div>
+    <div class="prologue-inner">
+      <p data-step="0">1935年6月<br>中央红军迎来长征路上的第一座大雪山</p>
+      <p data-step="1">夹金山，海拔4000米以上，终年积雪<br>当地人称它「神山」，说连鸟儿也飞不过去</p>
+      <p data-step="2">6月12日拂晓，红一军团二师四团从南麓的硗碛出发<br>队尾，一名战士跟着队伍上了山</p>
+      <button class="skip" id="prologueSkip" type="button">继续 →</button>
+    </div>
+  </div>
+
+  <script src="https://mat1.gtimg.com/qqcdn/tnewsh5/jsapi/1.3.9-beta7/qqnews-jsapi.min.js"></script>
+  <script src="qqnews-utils.js"></script>
+  <script>
+    (() => {
+      // ===================================================================
+      // 翻越夹金山 · 成片版
+      // 逐字稿见 jiajin-script.md，本文件只负责把它演出来。
+      // 十一段确认成片依次接入；10A 的渐强雪幕用于连接下滑与会师。
+      // ===================================================================
+
+      // 01/03/04 原始成片是 HEVC Main 10，Chrome、Firefox、多数 Android 解不出画面
+      //（有声音、进度在走、画面全白）。这里为它们准备了 VP9 webm 双源。
+      const CAN_VP9 = (() => {
+        const probe = document.createElement("video");
+        return !!probe.canPlayType('video/webm; codecs="vp9"');
+      })();
+
+      function srcOf(clip) {
+        if (!clip) return "";
+        return CAN_VP9 && clip.webm ? clip.webm : clip.mp4;
+      }
+
+      const V = {
+        openingRun: { mp4: "media-clean/opening-run.mp4", webm: "media-clean/opening-run.webm" },
+        s01: { mp4: "01.mp4" },
+        s02: { mp4: "02.mp4" },
+        s03: { mp4: "03.mp4" },
+        s04: { mp4: "04.mp4" },
+        s05: { mp4: "05.mp4" },
+        s06: { mp4: "media-clean/06.mp4", webm: "media-clean/06.webm" },
+        s07: { mp4: "media-clean/07.mp4", webm: "media-clean/07.webm" },
+        s08a: { mp4: "media-clean/08A.mp4", webm: "media-clean/08A.webm" },
+        s09PullFixed: { mp4: "media-clean/09-pull-silent.mp4", webm: "media-clean/09-pull-silent.webm" },
+        s09: { mp4: "09.mp4" },
+        s10a: { mp4: "10A.mp4" },
+        s10b: { mp4: "10B.mp4" },
+        endingRun: { mp4: "media-clean/ending-run.mp4", webm: "media-clean/ending-run.webm" }
+      };
+
+      // ===== 十六拍 =====
+      // video 为 null 的拍还没拍，用 placeholder 描述的占位卡代替，文案与交互照常。
+      // end: auto 播完就走 / tap 等点击热区 / steps 数步子 / blind 拉布条 / pull 长按拉人 / finale 尾卡
+      const LEGACY_SCENES = [
+        {
+          id: "1-1", act: "山下", clock: 0, video: V.s00,
+          location: ["1935年6月12日 拂晓", "四川宝兴 · 硗碛<br>夹金山南麓 海拔约2100米"],
+          beats: [
+            { at: 1.2, type: "caption", hold: 4200,
+              text: "出发前，队伍在头道桥开动员会。\n战士们用竹竿树条当拐杖，每人分到干辣椒。" },
+            { at: 4.6, type: "line", who: "藏族向导 莫日坚", hold: 3200,
+              text: "「山上冷得很，这个含着，能顶一阵子。」" }
+          ],
+          end: "tap"
+        },
+        {
+          id: "1-2", act: "山下", clock: 0, video: V.s01,
+          beats: [
+            { at: 0.6, type: "line", who: "藏族向导 莫日坚", hold: 3600,
+              text: "「上午九点以后再上山，\n下午三点以前一定要下来。\n迟了，衣裳和鞋子都要冻成冰。」" }
+          ],
+          end: "auto"
+        },
+        {
+          id: "1-3", act: "山下", clock: 0, video: V.s02,
+          beats: [
+            { at: 0.6, type: "line", who: "藏族向导 莫日坚", hold: 4200,
+              text: "「山上气稀，不敢大声说笑，\n更不敢坐下歇气。\n拄根棍子，探得了路，\n也给后头的人留个记号。」" },
+            { at: 5.0, type: "line", who: "藏族向导 莫日坚", hold: 3000,
+              text: "「再撕块布，把眼睛蒙上条缝。\n雪亮得很，看久了要瞎。」" }
+          ],
+          end: "auto"
+        },
+        {
+          id: "2-1", act: "上山", clock: .04, video: null, duration: 11000,
+          placeholder: { title: "上山初段 · 前头传来喊声", desc: "第一人称，队伍在雪坡上蜿蜒向上。声音来自前方，画面不切人物。" },
+          beats: [
+            { at: 0.8, type: "caption", hold: 1800, text: "前头有人在喊 ——" },
+            { at: 2.6, type: "line", who: "红四团政委 杨成武", hold: 4600,
+              text: "「老乡说这是神仙山，鸟儿飞不过，\n只有神仙能过。\n这会儿我们上来了 —— 岂不成了神仙！」" },
+            { at: 7.6, type: "caption", hold: 2800, text: "风雪里有人笑了几声\n队伍接着往上走" }
+          ],
+          end: "auto"
+        },
+        {
+          id: "2-2", act: "上山", clock: .10, video: V.s03,
+          end: "steps",
+          // 伍修权：起初一百步歇一次，后来五十步，最后三十步
+          // 只按一次。第一口气由用户走完，之后交给画面——
+          // 数字自己往下掉，一口比一口短，人也一步比一步慢。
+          steps: {
+            hold: { limit: 100, until: 0.40 },
+            auto: [
+              { limit: 50, until: 0.72, caption: "起初一百步歇一次\n后来是五十步" },
+              { limit: 30, until: 1.00, caption: "再后来，三十步",
+                line: { who: "红三军团副参谋长 伍修权", hold: 4200,
+                        text: "「不能再少了。走不动也得走，\n不然只有永远躺在这里。」" } }
+            ]
+          }
+        },
+        {
+          id: "2-3", act: "上山", clock: .30, video: null, duration: 9000,
+          placeholder: { title: "雪盲 · 拉下布条", desc: "云开，日照雪面，视野整片过曝发白。拉下额前布条后，视野收成一条横缝。" },
+          beats: [
+            { at: 0.8, type: "caption", hold: 3600, text: "云散开的时候\n整座山像是用银子砌起来的" }
+          ],
+          end: "blind"
+        },
+        {
+          id: "2-4", act: "上山", clock: .40, video: null, duration: 12000,
+          placeholder: { title: "冰雹", desc: "天色骤暗。大雾、细雨、飞雪，接着核桃大的冰雹劈头盖脸。只能低头往前。" },
+          beats: [
+            { at: 0.8, type: "caption", hold: 5200,
+              text: "一过中午，天气骤变\n先是大雾，随后毛毛细雨\n转眼又变成霏霏白雪，随风狂舞\n把人一个个都变成雪人" },
+            { at: 6.6, type: "caption", hold: 3600, text: "再后来是冰雹，核桃那么大，劈头盖脸" }
+          ],
+          end: "auto"
+        },
+        {
+          id: "2-6", act: "上山", clock: .48, video: V.s04,
+          beats: [
+            { at: 0.4, type: "caption", hold: 3000, text: "他停下了。\n前面的人转过身，把手里的棍子递了回来。" },
+            { at: 3.4, type: "line", who: "", hold: 2400, text: "「抓住。」" }
+          ],
+          end: "auto"
+        },
+        {
+          id: "3-1", act: "他看见的人", clock: .55, video: null, duration: 9000,
+          placeholder: { title: "抬伤员的女红军", desc: "几个女红军连推带拉，把一副担架往山顶上弄。他侧身让路。" },
+          beats: [
+            { at: 1.0, type: "caption", hold: 4200,
+              text: "有几个女红军，连推带拉，把伤员往山顶上弄\n其中一个累得吐了血" }
+          ],
+          end: "auto"
+        },
+        {
+          id: "3-2", act: "他看见的人", clock: .60, video: null, duration: 12000,
+          placeholder: { title: "骡子与药片", desc: "一头骡子，骡尾后面的警卫员一屁股坐在雪地上。骑骡的人下来了。" },
+          beats: [
+            { at: 0.8, type: "caption", hold: 5000,
+              text: "骡子上的人有肺病，是被扶上山的\n警卫员拽着骡子尾巴走，走着走着坐下了" },
+            { at: 6.2, type: "caption", hold: 4200,
+              text: "她从骡子上下来\n把医生给她的药片放进警卫员嘴里" },
+            { at: 10.6, type: "caption", hold: 3000, text: "病得最重的那个人，把药给了别人" }
+          ],
+          end: "auto"
+        },
+        {
+          id: "3-3", act: "他看见的人", clock: .66, video: null, duration: 10000,
+          placeholder: { title: "雪里坐着的人", desc: "路边雪里坐着一个战士，姿势像在歇气。队伍从旁边走过去，不停。" },
+          // 旁白押后：先走过去，再出字
+          beats: [
+            { at: 5.4, type: "caption", hold: 4200, text: "有人坐下去，就再也没有起来。" }
+          ],
+          end: "auto"
+        },
+        {
+          id: "4-1", act: "他成为前面那个人", clock: .74, video: null, duration: 9000,
+          placeholder: { title: "递出棍子", desc: "04 的反打：身后有人跪倒在雪里。他停下，回身，把棍子伸出去。" },
+          beats: [
+            { at: 1.0, type: "line", who: "", hold: 2600, text: "「抓住。」" }
+          ],
+          end: "pull",
+          afterPull: { type: "caption", hold: 3600, text: "他也曾经这样被人拉起来。" }
+        },
+        {
+          id: "5-1", act: "山那边", clock: .84, video: null, duration: 11000,
+          location: ["王母寨垭口", "海拔4114米"],
+          placeholder: { title: "垭口 · 插棍回望", desc: "他把棍子插进雪里。回头看，风雪里有人正顺着它走上来。" },
+          beats: [
+            { at: 1.0, type: "caption", hold: 2600, text: "他把棍子插进雪里" },
+            { at: 4.4, type: "caption", hold: 4600,
+              text: "风雪里，有人正顺着那根棍子走上来\n那个人手里，也拄着一根棍子" }
+          ],
+          end: "auto"
+        },
+        {
+          id: "5-2", act: "山那边", clock: .92, video: null, duration: 8000,
+          placeholder: { title: "滑下山", desc: "翻过垭口，北坡。有人干脆坐下，连走带滚往下滑。这一拍是欢快的。" },
+          beats: [
+            { at: 1.0, type: "caption", hold: 3600, text: "一过山顶，许多战士连走带滚，滑下山去" }
+          ],
+          end: "auto"
+        },
+        {
+          id: "5-3", act: "山那边", clock: 1, video: null, duration: 16000,
+          placeholder: { title: "撞见一支队伍", desc: "山下木城沟口，风雪渐收。对面山道上出现一队人影，正朝这边来。" },
+          // 分三次出字，中间留白。「意外」不能提前泄底。
+          beats: [
+            { at: 1.2, type: "caption", hold: 2800, text: "山下有一队人正朝这边走来" },
+            { at: 5.4, type: "caption", hold: 2800, text: "没有人知道那是谁。" },
+            { at: 9.6, type: "caption", hold: 4400, text: "是红四方面军。\n他们已经在这里等了三天。" },
+            { at: 14.0, type: "caption", hold: 3000,
+              text: "想到山脚下就有盼望已久的战友\n说不清当时是哪里来的那一股体力" }
+          ],
+          end: "finale"
+        }
+      ];
+
+      // 自动连续段已合并为长视频：字幕只作为覆盖层出现，不再触发视频切换。
+      // 仅在 06、07、09 的剧情交互点允许暂停。
+      const SCENES = [
+        {
+          id: "01-05", act: "行军", clock: 0, clockEnd: .48, video: V.openingRun,
+          location: ["1935年6月12日 拂晓", "四川宝兴 · 硗碛<br>夹金山南麓 海拔约2100米"],
+          locationHold: 9048,
+          inlineTap: { at: 5.95, prompt: "点一下，接过辣椒", target: "chili" },
+          beats: [
+            { at: 0.45, type: "caption", hold: 2950,
+              text: "出发前，头道桥开了一场翻山动员会。\n竹竿树条做拐杖，干辣椒分到每个人手里。" },
+            { at: 3.5, type: "line", who: "藏族向导 莫日坚", hold: 2600,
+              text: "「山上冷得很。含着它，能多撑一阵。」" },
+            { at: 3.5, type: "sfx", name: "mo-rijian-cold" },
+            { at: 6.648, type: "line", who: "藏族向导 莫日坚", hold: 3600,
+              text: "「上午九点以后上山，下午三点以前务必下来。\n再迟，衣裳和鞋子都要冻成冰。」" },
+            { at: 12.696, type: "line", who: "藏族向导 莫日坚", hold: 2900,
+              text: "「山上气薄，别大声说笑，更不能坐下。\n拄紧棍子，跟住前面的人。」" },
+            { at: 15.65, type: "line", who: "红四团政委 杨成武", hold: 3300,
+              text: "「老乡说，这是神仙山，鸟飞不过，只有神仙能过。」" },
+            { at: 19.15, type: "line", who: "红四团政委 杨成武", hold: 3000,
+              text: "「如今咱们上来了——岂不都成了神仙！」" },
+            { at: 19.15, type: "sfx", name: "yang-chengwu-distant" },
+            { at: 21.9, type: "sfx", name: "male-laughter-distant" },
+            { at: 22.0, type: "caption", hold: 900,
+              text: "笑声刚起，云层忽然裂开。" },
+            { at: 22.2, type: "glare-on" },
+            { at: 22.65, type: "caption", hold: 2500,
+              text: "日光落在雪坡上，\n天地白得几乎睁不开眼。" },
+            { at: 25.4, type: "glare-off" },
+            { at: 25.55, type: "caption", hold: 2800, text: "不过片刻，云影又压了下来。" },
+            { at: 28.992, type: "caption", hold: 4200,
+              text: "一过中午，天气骤变。\n大雾裹着飞雪，冰雹迎面砸来。" }
+          ],
+          end: "auto"
+        },
+        {
+          id: "06", act: "风雪", clock: .48, clockEnd: .58, clockUntil: 6.9, video: V.s06,
+          beats: [
+            { at: 2.2, type: "caption", hold: 3400, text: "山越高，空气越薄。\n每迈一步，都要换一口气。" },
+            { at: 6.4, type: "line", who: "红三军团副参谋长 伍修权", hold: 3200,
+              text: "「起初一百步歇一次，后来五十步，\n到最后，只剩三十步。」" }
+          ],
+          // 7.8s 左右才开始真正摔倒。长按要在此前完成并退场，
+          // 留出一小段“已经跟上”的错觉，再让努力被身体极限打断。
+          climbUntil: 6.9,
+          end: "steps"
+        },
+        {
+          id: "07", act: "互相搀扶", clock: .58, clockEnd: .68, video: V.s07,
+          beats: [
+            { at: 0.5, type: "caption", hold: 2200, text: "突然，他跌进雪里。前面的人闻声停步，回身递来木棍。" },
+            { at: 2.7, type: "line", who: "", hold: 1600, text: "「抓住。」" }
+          ],
+          end: "tapAt", pauseAt: 4.15, tapPrompt: "点一下，抓住木棍", tapTarget: "stick"
+        },
+        {
+          id: "08A", act: "互相搀扶", clock: .68, clockEnd: .78, video: V.s08a,
+          beats: [
+            { at: 1.2, type: "caption", hold: 2500, singleLine: true,
+              text: "借着那根木棍，他重新站稳，又往前走。" },
+            { at: 4.75, type: "sfx", name: "fall" },
+            { at: 6.3, type: "caption", hold: 2500, text: "身后忽然一声闷响。\n他回头看见，一个战友倒在雪里，正撑着地想站起来。" },
+            { at: 8.4, type: "line", who: "", hold: 1400, text: "「抓住。」" }
+          ],
+          end: "auto"
+        },
+        {
+          id: "09-pull", act: "互相搀扶", clock: .78, clockEnd: .82, clockUntil: 3.75, video: V.s09PullFixed,
+          muteVideoAudio: true,
+          beats: [
+            { at: .05, type: "music-lift" }
+          ],
+          end: "pullVideo", pullUntil: 3.75
+        },
+        {
+          id: "09-10B", act: "翻过垭口", clock: .82, clockEnd: 1, video: V.endingRun,
+          location: ["王母寨垭口", "海拔4114米"],
+          beats: [
+            { at: 2.9, type: "caption", hold: 2500, singleLine: true, text: "刚才拉起他的木棍，如今又拉起一个人。" },
+            { at: 6.5, type: "music-finale" },
+            { at: 6.5, type: "caption", hold: 3000, text: "翻过垭口，战士们索性坐进雪里，一路滑下山去。" },
+            { at: 17.496, type: "caption", hold: 2300, text: "雪幕一点点散开。山道那头，走来一支队伍。" },
+            { at: 20.896, type: "caption", hold: 2500, text: "是红四方面军。\n他们已经在这里等了三天。" },
+            { at: 23.896, type: "caption", hold: 2100,
+              text: "一想到山脚下就是盼了许久的战友，\n也不知从哪里，又生出一股力气。" }
+          ],
+          end: "finale"
+        }
+      ];
+
+      // 尾卡：会师之后直接进入向导后记，中间不再插入伤亡说明页。
+      const FINALE = [
+        { readMs: 9000, text: "1935年6月12日下午\n红一方面军先头部队红四团翻过夹金山，\n在达维与红四方面军第九军二十五师七十四团会师\n长征以来，两支主力红军第一次会合" },
+        { readMs: 12500, text: "那位带路的藏族青年，原名莫日坚。\n翻山后，红军送他一盏马灯，\n取“马灯红”的谐音，为他起名马登洪。\n这个名字，被他的家族记住。\n多年后，他的后人说：\n“从此，我们子子孙孙都姓马。”" }
+      ];
+
+      const app = document.getElementById("app");
+      // 三个常驻 video 元素轮换：一个播放，另外两个分别缓存 +1、+2 段。
+      // 不能用临时 video 做预加载；临时元素失去引用后可能被浏览器回收。
+      const films = [
+        document.getElementById("filmA"),
+        document.getElementById("filmB"),
+        document.getElementById("filmC")
+      ];
+      const poster = document.getElementById("poster");
+      const opening = document.getElementById("opening");
+      const soundButton = document.getElementById("soundButton");
+      const chiliButton = document.getElementById("chiliButton");
+      const interaction = document.getElementById("interaction");
+      const tapPrompt = document.getElementById("tapPrompt");
+      const locationCard = document.getElementById("locationCard");
+      const beatCaption = document.getElementById("beatCaption");
+      const dialogue = document.getElementById("dialogue");
+      const holdButton = document.getElementById("holdButton");
+      const ringProgress = document.getElementById("ringProgress");
+      const timebar = document.getElementById("timebar");
+      const status = document.getElementById("status");
+      const archive = document.getElementById("archive");
+      const archiveToggle = document.getElementById("archiveToggle");
+      const archiveClose = document.getElementById("archiveClose");
+      const prologue = document.getElementById("prologue");
+      const prologueSkip = document.getElementById("prologueSkip");
+      const snowfall = document.getElementById("snowfall");
+      const sceneLoop = document.getElementById("sceneLoop");
+      const placeholder = document.getElementById("placeholder");
+      const placeholderTitle = document.getElementById("placeholderTitle");
+      const placeholderDesc = document.getElementById("placeholderDesc");
+      const blind = document.getElementById("blind");
+      const actMark = document.getElementById("actMark");
+      const finale = document.getElementById("finale");
+      const finaleInner = document.getElementById("finaleInner");
+      const titlePreload = document.getElementById("titlePreload");
+      const ambientWind = document.getElementById("ambientWind");
+      const backgroundMusic = document.getElementById("backgroundMusic");
+      const fallSfx = document.getElementById("fallSfx");
+      const pantingSfx = document.getElementById("pantingSfx");
+      const guideColdVoiceSfx = document.getElementById("guideColdVoiceSfx");
+      const distantVoiceSfx = document.getElementById("distantVoiceSfx");
+      const distantLaughSfx = document.getElementById("distantLaughSfx");
+
+      // 手机扬声器经常把立体声折叠为单声道，并带系统动态压缩。
+      // 手机专用混音把远场反射保留在两声道共有部分，折叠后仍能听出距离；
+      // PC 继续使用保留更宽空间感的桌面版本。
+      const useMobileDistanceMix = window.matchMedia?.("(pointer: coarse)").matches === true;
+      // 手机端先保持视频静音；共享 Web Audio 建立后再把视频原音接入同一上下文，
+      // 既恢复脚步、衣物与风雪细节，也避免它作为第二个媒体音轨抢停背景音乐。
+      let muteStoryVideoAudioOnMobile = useMobileDistanceMix;
+      const mobileFilmAudioRoutes = new Map();
+      if (useMobileDistanceMix) {
+        [distantVoiceSfx, distantLaughSfx].forEach((audio) => {
+          if (!audio || !audio.dataset.mobileSrc) return;
+          audio.src = audio.dataset.mobileSrc;
+          audio.load();
+        });
+      }
+
+      let activeFilm = 0;
+      let sceneIndex = -1;
+      let hasStarted = false;
+      let isMuted = false;
+      let loadingNoticeTimer = 0;
+      let titleAutoTimer = 0;
+      let resumeAfterVisibility = false;
+      let resumeWindAfterVisibility = false;
+      let resumeMusicAfterVisibility = false;
+      let sceneRunToken = 0;
+      let playbackIntent = "idle";
+      let playbackGuardTimer = 0;
+      let windFadeFrame = 0;
+      let windAttemptToken = 0;
+      let windAudioContext = null;
+      let windGain = null;
+      let windBuffer = null;
+      let windSource = null;
+      let windLoading = null;
+      let windWanted = false;
+      let backgroundMusicStarted = false;
+      let backgroundMusicStarting = false;
+      let backgroundMusicIntroTimer = 0;
+      let backgroundMusicFadeFrame = 0;
+      let backgroundMusicConductorFrame = 0;
+      let backgroundMusicMode = "middle";
+      let backgroundMusicFinaleRequested = false;
+      let backgroundMusicFinaleSwitchAt = null;
+      let backgroundMusicLoopSeeking = false;
+      // 手机改走可精确控制响度的 Web Audio；与 PC 共用完全相同的母线曲线。
+      const MOBILE_MUSIC_GAIN = 1;
+      let backgroundMusicTargetVolume = .5 * MOBILE_MUSIC_GAIN;
+      let backgroundMusicLiftStartedAt = 0;
+      let backgroundMusicLiftFromVolume = .5;
+      let backgroundMusicLiftDuration = 0;
+      let webMusicBuffer = null;
+      let webMusicLoading = null;
+      let webMusicSource = null;
+      let webMusicGain = null;
+      let webMusicStartsAt = 0;
+      let guideVoiceBuffer = null;
+      let guideVoiceLoading = null;
+      let guideVoiceSource = null;
+      let guideVoicePlaying = false;
+      let distantVoiceBuffer = null;
+      let distantVoiceLoading = null;
+      let distantVoiceSource = null;
+      let distantVoicePlaying = false;
+      let distantLaughBuffer = null;
+      let distantLaughLoading = null;
+      let distantLaughSource = null;
+      let distantLaughPlaying = false;
+      let pantFadeFrame = 0;
+      let pantAttemptToken = 0;
+      let pantingContextActive = false;
+      const timers = [];
+
+      function clearTimers() {
+        while (timers.length) window.clearTimeout(timers.pop());
+      }
+      function later(fn, ms) {
+        const t = window.setTimeout(fn, ms);
+        timers.push(t);
+        return t;
+      }
+
+      function emit(type, extra = {}) {
+        window.dispatchEvent(new CustomEvent("jiajinshan", {
+          detail: { type, chapter: "jiajinshan", sceneIndex, ...extra }
+        }));
+      }
+
+      // ===== 装饰视频的自动播放兜底 =====
+      // iOS 和微信 WebView 只在「用户手势的同步调用栈里」才放行 play()。
+      const ambientVideos = [sceneLoop, snowfall].filter(Boolean);
+
+      function snowVisible() {
+        return parseFloat(getComputedStyle(snowfall).opacity) > 0.01;
+      }
+
+      function unlockAmbient() {
+        ambientVideos.forEach((video) => {
+          video.muted = true;
+          if (!video.src || !video.paused) return;
+          if (video === sceneLoop && sceneLoop.classList.contains("is-hidden")) return;
+          if (video === snowfall && !snowVisible()) return;
+          video.play().catch(() => {});
+        });
+        if (!isMuted) primeAmbientWind(false);
+      }
+
+      ["pointerdown", "touchstart", "click"].forEach((type) => {
+        document.addEventListener(type, unlockAmbient, { passive: true, capture: true });
+      });
+      document.addEventListener("WeixinJSBridgeReady", unlockAmbient, false);
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) unlockAmbient();
+      });
+
+      function wakeSnowfall() {
+        if (!snowfall || !snowfall.dataset.loaded) return;
+        if (snowfall.paused) snowfall.play().catch(() => {});
+      }
+      function settleSnowfall() {
+        if (!snowfall || !snowfall.dataset.loaded) return;
+        if (snowVisible()) wakeSnowfall();
+        else if (!snowfall.paused) snowfall.pause();
+      }
+      new MutationObserver(() => {
+        wakeSnowfall();
+        window.setTimeout(settleSnowfall, 1300);
+      }).observe(app, { attributes: true, attributeFilter: ["class", "style"] });
+      if (snowfall) snowfall.addEventListener("transitionend", settleSnowfall);
+
+      // ===== 等比缩放：设计稿 1280×720 =====
+      const DESIGN_W = 1280;
+      const DESIGN_H = 720;
+
+      function fitStage() {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const portrait = vh > vw;
+        const availW = portrait ? vh : vw;
+        const availH = portrait ? vw : vh;
+        document.documentElement.style.setProperty(
+          "--fit", Math.min(availW / DESIGN_W, availH / DESIGN_H).toFixed(4));
+      }
+      fitStage();
+      window.addEventListener("resize", fitStage);
+      window.addEventListener("orientationchange", () => window.setTimeout(fitStage, 120));
+
+      // ===== 文字 =====
+      let captionTimer = 0;
+      let dialogueTimer = 0;
+
+      function showCaption(text, duration = 1800, singleLine = false) {
+        dialogue.classList.remove("is-visible");
+        window.clearTimeout(captionTimer);
+        beatCaption.textContent = text;
+        beatCaption.classList.toggle("is-single-line", singleLine);
+        beatCaption.classList.add("is-visible");
+        if (duration > 0) {
+          captionTimer = window.setTimeout(() => beatCaption.classList.remove("is-visible"), duration);
+          timers.push(captionTimer);
+        }
+      }
+
+      function showDialogue(text, who = "", duration = 3600) {
+        beatCaption.classList.remove("is-visible");
+        window.clearTimeout(dialogueTimer);
+        dialogue.innerHTML = (who ? `<span class="who">${who}</span>` : "")
+          + `<span class="say">${text}</span>`;
+        dialogue.classList.add("is-visible");
+        if (duration > 0) {
+          dialogueTimer = window.setTimeout(() => dialogue.classList.remove("is-visible"), duration);
+          timers.push(dialogueTimer);
+        }
+      }
+
+      function hideText() {
+        window.clearTimeout(captionTimer);
+        window.clearTimeout(dialogueTimer);
+        beatCaption.classList.remove("is-visible");
+        dialogue.classList.remove("is-visible");
+      }
+
+      function setClock(value) {
+        app.style.setProperty("--clock", Math.max(0, Math.min(1, value)).toFixed(3));
+      }
+
+      // 时间轴必须跟着剧情的真实播放位置走，而不是只在换场时跳到预设节点。
+      // 视频暂停在交互点时 currentTime 不变，时间轴也会自然停住；继续播放后再接着前进。
+      let clockFrame = 0;
+
+      function stopClock() {
+        if (clockFrame) cancelAnimationFrame(clockFrame);
+        clockFrame = 0;
+      }
+
+      function runClock(scene, index) {
+        stopClock();
+        const from = Number.isFinite(scene.clock) ? scene.clock : 0;
+        const to = Number.isFinite(scene.clockEnd) ? scene.clockEnd : from;
+        const video = scene.video ? films[activeFilm] : null;
+        const sourceStart = Number.isFinite(scene.startAt) ? scene.startAt : 0;
+        const wallStart = performance.now();
+
+        const tick = () => {
+          clockFrame = 0;
+          if (sceneIndex !== index) return;
+
+          let progress = 0;
+          if (video) {
+            let sourceEnd = Number.isFinite(scene.clockUntil) ? scene.clockUntil : NaN;
+            if (!Number.isFinite(sourceEnd) && Number.isFinite(video.duration)) {
+              sourceEnd = Math.max(sourceStart + .001, video.duration);
+            }
+            if (!Number.isFinite(sourceEnd)) sourceEnd = sourceStart + 1;
+            progress = (video.currentTime - sourceStart) / Math.max(.001, sourceEnd - sourceStart);
+          } else if (Number.isFinite(scene.duration) && scene.duration > 0) {
+            progress = (performance.now() - wallStart) / scene.duration;
+          }
+
+          progress = Math.max(0, Math.min(1, progress));
+          setClock(from + (to - from) * progress);
+          if (progress < 1) clockFrame = requestAnimationFrame(tick);
+        };
+
+        setClock(from);
+        clockFrame = requestAnimationFrame(tick);
+      }
+
+      // ===== 字幕由「时间源」驱动 =====
+      // 有视频时读 video.currentTime，视频卡住字幕就等着；
+      // 占位卡没有视频，只能用墙钟——这是唯一可以用墙钟的地方。
+      let beatFrame = 0;
+      let placeholderStart = 0;
+
+      function stopBeats() {
+        if (beatFrame) cancelAnimationFrame(beatFrame);
+        beatFrame = 0;
+      }
+
+      function runBeats(scene, index) {
+        stopBeats();
+        const beats = (scene.beats || []).map((beat) => ({ ...beat, fired: false }));
+        if (!beats.length) return;
+        const video = scene.video ? films[activeFilm] : null;
+        placeholderStart = performance.now();
+
+        const tick = () => {
+          beatFrame = 0;
+          if (sceneIndex !== index) return;
+          const now = video ? video.currentTime : (performance.now() - placeholderStart) / 1000;
+          beats.forEach((beat) => {
+            if (beat.fired || now < beat.at) return;
+            beat.fired = true;
+            if (beat.type === "caption") showCaption(beat.text, beat.hold, beat.singleLine);
+            else if (beat.type === "line") showDialogue(beat.text, beat.who, beat.hold);
+            else if (beat.type === "sfx") playSoundEffect(beat.name);
+            else if (beat.type === "music-lift") liftBackgroundMusicForPull();
+            else if (beat.type === "music-finale") requestBackgroundMusicFinale();
+            else if (beat.type === "glare-on") app.classList.add("is-glare");
+            else if (beat.type === "glare-off") app.classList.remove("is-glare");
+          });
+          if (beats.some((beat) => !beat.fired)) beatFrame = requestAnimationFrame(tick);
+        };
+        beatFrame = requestAnimationFrame(tick);
+      }
+
+      // ===== 播放 =====
+      function waitForFrame(video) {
+        if (video.readyState >= 2 && !video.seeking) return Promise.resolve();
+        return new Promise((resolve) => {
+          let settled = false;
+          const events = ["loadeddata", "canplay", "seeked", "error"];
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            events.forEach((type) => video.removeEventListener(type, done));
+            resolve();
+          };
+          events.forEach((type) => video.addEventListener(type, done, { once: true }));
+          // 正片已在片头完整下载，切场这里只等一次解码。不能让浏览器少发一个
+          // loadeddata 事件就把上一帧额外冻住六秒。
+          window.setTimeout(done, 1200);
+        });
+      }
+
+      function futureVideoScenes(from, count = 2) {
+        const result = [];
+        for (let i = from + 1; i < SCENES.length && result.length < count; i += 1) {
+          if (SCENES[i].video) result.push(SCENES[i]);
+        }
+        return result;
+      }
+
+      // video.preload 只是浏览器提示，移动端经常只取元数据或少量分片。
+      // 所有正式视频必须先完整下载成 Blob，正片开始后不再依赖网络请求。
+      const sourceCache = new Map();
+
+      function cacheSource(src) {
+        if (!src) return Promise.resolve("");
+        const existing = sourceCache.get(src);
+        if (existing) return existing.promise;
+
+        const record = { url: "", promise: null };
+        record.promise = fetch(src, { cache: "force-cache" })
+          .then((response) => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.blob();
+          })
+          .then((blob) => {
+            record.url = URL.createObjectURL(blob);
+            return record.url;
+          })
+          .catch(() => {
+            sourceCache.delete(src);
+            return "";
+          });
+        sourceCache.set(src, record);
+        return record.promise;
+      }
+
+      const allVideoSources = [...new Set(
+        SCENES.map((scene) => srcOf(scene.video)).filter(Boolean)
+      )];
+      let fullPreloadReady = false;
+      let fullPreloadFailed = false;
+      let fullyCachedCount = 0;
+
+      async function cacheRequiredSource(src) {
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          const cachedUrl = await cacheSource(src);
+          if (cachedUrl) return cachedUrl;
+        }
+        throw new Error(`无法完整下载 ${src}`);
+      }
+
+      const allVideosReady = Promise.all(allVideoSources.map(async (src) => {
+        const cachedUrl = await cacheRequiredSource(src);
+        fullyCachedCount += 1;
+        titlePreload.textContent = `影像准备中 · ${fullyCachedCount}/${allVideoSources.length}`;
+        return cachedUrl;
+      })).then((urls) => {
+        fullPreloadReady = true;
+        return urls;
+      }).catch(() => {
+        fullPreloadFailed = true;
+        return [];
+      });
+
+      function pruneSourceCache(from) {
+        // 全片开播前已全部缓存；这里只释放已经播完且完成淡出的旧片段，
+        // 所有尚未播放的视频必须继续保留，不能退回网络加载。
+        const expired = new Set(
+          SCENES.slice(0, Math.max(0, from - 1))
+            .map((scene) => srcOf(scene.video))
+            .filter(Boolean)
+        );
+
+        sourceCache.forEach((record, src) => {
+          if (!expired.has(src) || !record.url) return;
+          URL.revokeObjectURL(record.url);
+          sourceCache.delete(src);
+        });
+      }
+
+      function prepareFilm(video, src) {
+        if (!video || !src || video.dataset.preloadedSrc === src) return;
+        video.pause();
+        delete video.dataset.directRetrySrc;
+        video.onended = null;
+        video.ontimeupdate = null;
+        video.preload = "auto";
+        video.muted = true;
+        video.playsInline = true;
+        const cached = sourceCache.get(src);
+        video.src = cached && cached.url ? cached.url : src;
+        video.dataset.preloadedSrc = src;
+        video.load();
+
+        cacheSource(src).then((cachedUrl) => {
+          if (!cachedUrl || cachedUrl === src || video.dataset.preloadedSrc !== src) return;
+          // 可见视频即使正停在交互点也绝不能换源；load() 会把 currentTime 重置为 0，
+          // 造成“提示已经出现、画面却退回木棍尚未递出”的错位。
+          if (video.classList.contains("is-active")) return;
+          video.src = cachedUrl;
+          video.load();
+        });
+      }
+
+      function preloadAhead(from, count = 2) {
+        const wanted = futureVideoScenes(from, count)
+          .map((scene) => srcOf(scene.video))
+          .filter(Boolean);
+
+        wanted.forEach((src) => {
+          cacheSource(src);
+          if (films.some((film) => film.dataset.preloadedSrc === src)) return;
+          const assign = () => {
+            const candidate = films.find((film, index) =>
+              index !== activeFilm
+              && film.dataset.retiring !== "1"
+              && !wanted.includes(film.dataset.preloadedSrc));
+            if (candidate) prepareFilm(candidate, src);
+          };
+          assign();
+          // 刚退场的视频层需完成淡出后才能用于下一段预载，避免淡出过程中闪出未来画面。
+          if (!films.some((film) => film.dataset.preloadedSrc === src)) {
+            window.setTimeout(assign, 620);
+          }
+        });
+      }
+
+      function beginLoadingNotice() {
+        window.clearTimeout(loadingNoticeTimer);
+        loadingNoticeTimer = 0;
+        app.classList.remove("is-loading");
+      }
+
+      function endLoadingNotice() {
+        window.clearTimeout(loadingNoticeTimer);
+        loadingNoticeTimer = 0;
+        app.classList.remove("is-loading");
+      }
+
+      function showActMark(act) {
+        actMark.textContent = act;
+        actMark.classList.add("is-visible");
+        later(() => actMark.classList.remove("is-visible"), 1600);
+      }
+
+      async function playScene(index) {
+        if (index >= SCENES.length) return;
+        const runToken = ++sceneRunToken;
+        const scene = SCENES[index];
+        const prev = sceneIndex >= 0 ? SCENES[sceneIndex] : null;
+        sceneIndex = index;
+        playbackIntent = "switching";
+        clearTimers();
+        hideText();
+        stopBeats();
+        stopClock();
+        resetInteractionUI();
+        // 上一拍的地点卡靠定时器隐藏，而定时器刚被 clearTimers 清掉了，
+        // 所以这里必须显式收一次，否则它会一直留在画面上。
+        const carriesPreviousLocation = Boolean(scene.carryLocation && prev && prev.location);
+        if (!carriesPreviousLocation) locationCard.classList.remove("is-visible");
+
+        if (typeof scene.clock === "number") setClock(scene.clock);
+        emit("scene-start", { id: scene.id });
+
+        if (scene.location) {
+          locationCard.innerHTML = `<strong>${scene.location[0]}</strong><span>${scene.location[1]}</span>`;
+          locationCard.classList.add("is-visible");
+          if (scene.locationHold !== 0) {
+            later(() => locationCard.classList.remove("is-visible"), scene.locationHold || 4200);
+          }
+        } else if (carriesPreviousLocation) {
+          later(() => locationCard.classList.remove("is-visible"), scene.carryLocation);
+        }
+
+        if (scene.video) {
+          app.classList.remove("is-placeholder");
+          const startsPaused = scene.end === "steps"
+            || scene.end === "pullVideo"
+            || scene.end === "pullVideoFinale";
+          // 第 06 段先切上新片首帧，再用一拍文字交代体力不支，之后才出现长按入口。
+          // 这样指令是对剧情状态的回应，而不是毫无铺垫地突然出现。
+          // 拉人段必须先把新片首帧切到屏幕，再显示长按入口；如果提前覆盖在
+          // 08A 的旧画面上，播放器随后切到 09 首帧时会像交互触发了一次跳帧。
+          const swapped = await swapFilm(scene.video, startsPaused, runToken, scene.startAt || 0);
+          if (!swapped || runToken !== sceneRunToken || sceneIndex !== index) return;
+        } else {
+          showPlaceholder(scene);
+        }
+
+        runBeats(scene, index);
+        runClock(scene, index);
+        armInteraction(scene, index);
+        startPlaybackGuard(index, runToken);
+        // 当前段播放期间，常驻缓存后面两段；下一次切换直接启用已缓冲的元素。
+        preloadAhead(index, 2);
+        later(() => pruneSourceCache(index), 900);
+      }
+
+      async function swapFilm(clip, startsPaused = false, runToken = sceneRunToken, startAt = 0) {
+        const oldFilm = films[activeFilm];
+        const requestedSrc = srcOf(clip);
+        let nextIndex = films.findIndex((film, index) =>
+          index !== activeFilm
+          && film.dataset.retiring !== "1"
+          && film.dataset.preloadedSrc === requestedSrc);
+        if (nextIndex < 0) nextIndex = films.findIndex((film, index) =>
+          index !== activeFilm && film.dataset.retiring !== "1");
+        if (nextIndex < 0) return false;
+        const nextFilm = films[nextIndex];
+
+        beginLoadingNotice();
+        if (nextFilm.dataset.preloadedSrc !== requestedSrc) prepareFilm(nextFilm, requestedSrc);
+        const cachedSrc = await cacheSource(requestedSrc);
+        if (runToken !== sceneRunToken) return false;
+        if (cachedSrc && cachedSrc !== requestedSrc && nextFilm.src !== cachedSrc) {
+          nextFilm.src = cachedSrc;
+          nextFilm.load();
+        }
+        // 拉人段会反复随长按暂停画面，它自带的风声也会随之断裂。
+        // 该段只播放画面，连续风声统一由独立环境音轨承担。
+        nextFilm.muted = isMuted || muteStoryVideoAudioOnMobile
+          || Boolean(SCENES[sceneIndex] && SCENES[sceneIndex].muteVideoAudio);
+        nextFilm.currentTime = Math.max(0, startAt);
+        await waitForFrame(nextFilm);
+        if (runToken !== sceneRunToken) return false;
+
+        // 交互段本来就要停在首帧等用户操作，不能先调用 play() 再立刻 pause()。
+        // 某些浏览器的 play() Promise 要等数秒才兑现，会造成首帧已出现、按钮却迟迟不出现。
+        if (startsPaused) {
+          nextFilm.pause();
+          playbackIntent = "gate";
+        } else {
+          // 不等待 play() Promise 才切换界面。部分浏览器会等到真正开始解码才兑现 Promise，
+          // 若在这里 await，上一段尾帧会被无意义地定格数秒。
+          const playAttempt = nextFilm.play();
+          playbackIntent = "playing";
+          if (playAttempt && playAttempt.catch) {
+            playAttempt.catch(() => {
+              // 某些移动端只拦截“新 video 的有声自动播放”。这里只将该视频静音重试，
+              // 不能把全局声音状态一并关闭，否则独立风声也会在第一次换片后失去续播资格。
+              nextFilm.muted = true;
+              nextFilm.play().catch(() => {});
+            });
+          }
+        }
+
+        delete nextFilm.dataset.retiring;
+        nextFilm.classList.add("is-active");
+        oldFilm.classList.remove("is-active");
+        activeFilm = nextIndex;
+        // 新片首帧已经解码后才切换可见层。视频层不做淡出、交叠或白场，
+        // 切换完成便停止旧片，避免出现人为转场和双层画面。
+        oldFilm.pause();
+        endLoadingNotice();
+        return true;
+      }
+
+      function showPlaceholder(scene) {
+        films.forEach((film) => film.pause());
+        placeholderTitle.textContent = scene.placeholder ? scene.placeholder.title : "镜头待拍";
+        placeholderDesc.textContent = scene.placeholder ? scene.placeholder.desc : "";
+        app.classList.add("is-placeholder");
+        endLoadingNotice();
+      }
+
+      function resetInteractionUI() {
+        stopGuideVoice();
+        stopDistantVoice();
+        stopDistantLaugh();
+        pantingContextActive = false;
+        stopPanting(true, true);
+        // 切换场景时先彻底结束上一段的长按生命周期。
+        // 否则用户在新视频已经开始后松手，旧 pointerup 会误暂停新视频。
+        holdActive = false;
+        if (holdFrame) cancelAnimationFrame(holdFrame);
+        holdFrame = 0;
+        holdTargetVideo = null;
+        holdTargetSceneIndex = -1;
+        pendingClimbHold = false;
+        pendingPullHold = false;
+        app.classList.remove("is-waiting", "is-marching", "is-steps", "is-panting",
+          "is-climb-done", "is-blind", "is-blind-slit", "is-glare", "is-pull", "is-finale");
+        holdButton.querySelector("strong").textContent = "按住";
+        holdButton.querySelector("small").textContent = "跟上队伍";
+        tapPrompt.textContent = "点一下，接过辣椒";
+        interaction.setAttribute("aria-label", "继续");
+        delete interaction.dataset.target;
+        chiliButton.onclick = null;
+        ringProgress.style.strokeDashoffset = "289";
+        holdPanel.style.removeProperty("display");
+        holdPanel.style.removeProperty("visibility");
+        holdPanel.style.removeProperty("opacity");
+        holdPanel.removeAttribute("data-gate-scene");
+        holdMode = null;
+      }
+
+      // 交互入口不能只依赖一次 class 重绘。视频切片、首帧解码或旧图层淡出时，
+      // 部分 WebView 会短暂回滚样式，造成“画面停了，按钮却没出现”。这里把当前场景
+      // 作为唯一依据，在切换前、切换后和随后两次绘制中持续校正交互层。
+      function revealHoldGate(index) {
+        if (sceneIndex !== index) return;
+        app.classList.add("is-marching");
+        holdPanel.style.display = "block";
+        holdPanel.style.visibility = "visible";
+        holdPanel.style.opacity = "1";
+        holdPanel.dataset.gateScene = String(index);
+      }
+
+      function reinforceHoldGate(index) {
+        revealHoldGate(index);
+        requestAnimationFrame(() => revealHoldGate(index));
+        window.setTimeout(() => revealHoldGate(index), 120);
+        window.setTimeout(() => revealHoldGate(index), 700);
+      }
+
+      function concealHoldGate() {
+        holdPanel.style.removeProperty("display");
+        holdPanel.style.removeProperty("visibility");
+        holdPanel.style.removeProperty("opacity");
+        holdPanel.removeAttribute("data-gate-scene");
+      }
+
+      function startPlaybackGuard(index, runToken) {
+        window.clearTimeout(playbackGuardTimer);
+        const guard = () => {
+          if (sceneIndex !== index || sceneRunToken !== runToken) return;
+          const video = films[activeFilm];
+          const blocked = document.hidden
+            || archive.classList.contains("is-open")
+            || playbackIntent !== "playing";
+          if (!blocked && video.paused && !video.ended && video.readyState >= 2) {
+            video.play().catch(() => {});
+          }
+          if (!document.hidden && !isMuted && windWanted && windAudioContext
+            && windAudioContext.state !== "running") {
+            windAudioContext.resume().catch(() => {});
+          }
+          playbackGuardTimer = window.setTimeout(guard, 320);
+        };
+        playbackGuardTimer = window.setTimeout(guard, 320);
+      }
+
+      // ===== 每一拍的结束方式 =====
+      function armInteraction(scene, index) {
+        const advance = () => { if (sceneIndex === index) playScene(index + 1); };
+
+        // 后续视频已经完整缓存并预解码，但必须等当前视频完整播放结束才切换。
+        // 禁止提前截断尾帧，也禁止用淡化、叠化或白场掩盖切换。
+        const armContinuousAdvance = (video) => {
+          let advanced = false;
+          let inlineTapDone = !scene.inlineTap;
+          const go = () => {
+            if (advanced) return;
+            advanced = true;
+            video.ontimeupdate = null;
+            video.onended = null;
+            advance();
+          };
+          video.ontimeupdate = () => {
+            if (!inlineTapDone && video.currentTime >= scene.inlineTap.at) {
+              inlineTapDone = true;
+              playbackIntent = "gate";
+              video.pause();
+              tapPrompt.textContent = scene.inlineTap.prompt;
+              interaction.setAttribute("aria-label", scene.inlineTap.prompt);
+              interaction.dataset.target = scene.inlineTap.target || "chili";
+              app.classList.add("is-waiting");
+              return;
+            }
+          };
+          if (scene.inlineTap) {
+            chiliButton.onclick = () => {
+              if (!app.classList.contains("is-waiting")) return;
+              app.classList.remove("is-waiting");
+              emit("chili-tap");
+              playbackIntent = "playing";
+              video.play().catch(() => {});
+            };
+          }
+          video.onended = go;
+        };
+
+        if (scene.end === "auto") {
+          if (scene.video) armContinuousAdvance(films[activeFilm]);
+          else later(advance, scene.duration || 8000);
+          return;
+        }
+
+        if (scene.end === "tap") {
+          tapPrompt.textContent = scene.tapPrompt || "点一下，继续";
+          const showTap = () => {
+            interaction.dataset.target = scene.tapTarget || "chili";
+            app.classList.add("is-waiting");
+          };
+          if (scene.video) films[activeFilm].onended = showTap;
+          else later(showTap, scene.duration || 6000);
+          chiliButton.onclick = () => {
+            if (!app.classList.contains("is-waiting")) return;
+            app.classList.remove("is-waiting");
+            emit("chili-tap");
+            advance();
+          };
+          return;
+        }
+
+        if (scene.end === "tapAt") {
+          const video = films[activeFilm];
+          let pausedForTap = false;
+          let advanced = false;
+          const go = () => {
+            if (advanced || sceneIndex !== index) return;
+            advanced = true;
+            video.ontimeupdate = null;
+            video.onended = null;
+            advance();
+          };
+          tapPrompt.textContent = scene.tapPrompt || "点一下，继续";
+          video.ontimeupdate = () => {
+            if (pausedForTap || video.currentTime < (scene.pauseAt || 0)) return;
+            pausedForTap = true;
+            video.ontimeupdate = null;
+            playbackIntent = "gate";
+            video.pause();
+            interaction.dataset.target = scene.tapTarget || "stick";
+            app.classList.add("is-waiting");
+          };
+          video.onended = go;
+          chiliButton.onclick = () => {
+            if (!app.classList.contains("is-waiting")) return;
+            app.classList.remove("is-waiting");
+            emit("assist-grab");
+            playbackIntent = "playing";
+            // 点击只负责恢复当前片段；必须完整播放到 onended 后再接下一段。
+            video.play().catch(() => {});
+          };
+          return;
+        }
+
+        if (scene.end === "steps") {
+          startSteps(scene, index);
+          // 自动段播完就是力竭，由视频自己收尾推进
+          films[activeFilm].onended = advance;
+          return;
+        }
+
+        if (scene.end === "pullVideo" || scene.end === "pullVideoFinale") {
+          const video = films[activeFilm];
+          const shouldContinueHolding = pendingPullHold;
+          pendingPullHold = false;
+          video.pause();
+          // swapFilm 已经把新片定位到 0 秒并完成首帧解码。这里再次写 currentTime
+          // 会触发一次无意义的 seek，按钮出现时正好伴随画面重新提交，形成跳帧感。
+          video.onended = scene.end === "pullVideoFinale" ? runFinale : advance;
+          app.classList.add("is-marching", "is-pull");
+          holdMode = "pull-video";
+          pullUntil = scene.pullUntil || 2.4;
+          holdButton.querySelector("strong").textContent = "拉他起来";
+          holdButton.querySelector("small").textContent = "按住不放";
+          ringProgress.style.strokeDashoffset = "289";
+          playbackIntent = "gate";
+          reinforceHoldGate(index);
+          if (shouldContinueHolding) {
+            holdActive = true;
+            holdTargetVideo = video;
+            holdTargetSceneIndex = index;
+            lastTick = performance.now();
+            playbackIntent = "playing";
+            holdStrong.textContent = "别松手";
+            video.play().catch(() => {});
+            if (!holdFrame) holdFrame = requestAnimationFrame(holdLoop);
+          }
+          return;
+        }
+
+        if (scene.end === "blind") {
+          app.classList.add("is-blind");
+          later(() => {
+            app.classList.add("is-marching");
+            holdMode = "blind";
+            holdButton.querySelector("strong").textContent = "拉下布条";
+            holdButton.querySelector("small").textContent = "挡住雪光";
+            holdButton.onclick = () => {
+              if (holdMode !== "blind") return;
+              holdMode = null;
+              app.classList.add("is-blind-slit");
+              showCaption("视野只剩一条缝，路又看得见了", 3000);
+              later(advance, 3600);
+            };
+          }, 3200);
+          return;
+        }
+
+        if (scene.end === "pull") {
+          app.classList.add("is-marching", "is-pull");
+          holdMode = "pull";
+          pullProgress = 0;
+          holdButton.querySelector("strong").textContent = "拉他起来";
+          holdButton.querySelector("small").textContent = "按住不放";
+          pullDone = () => {
+            if (scene.afterPull) showCaption(scene.afterPull.text, scene.afterPull.hold);
+            later(advance, (scene.afterPull && scene.afterPull.hold) || 3800);
+          };
+          return;
+        }
+
+        if (scene.end === "finale") {
+          if (scene.video) films[activeFilm].onended = runFinale;
+          else later(runFinale, scene.duration || 16000);
+        }
+      }
+
+      // ===== 数步子 =====
+      // 起初一百步歇一次，后来五十步，最后三十步。（伍修权）
+      let holdMode = null;
+      let holdActive = false;
+      let holdFrame = 0;
+      let lastTick = 0;
+      let climb = 0;
+      let stepScene = null;
+      let stepSceneIndex = -1;
+      let pullProgress = 0;
+      let pullDone = null;
+      let pullUntil = 2.4;
+      let holdTargetVideo = null;
+      let holdTargetSceneIndex = -1;
+      let pendingClimbHold = false;
+      let pendingPullHold = false;
+
+      // ===== 上山：不按住就在原地喘气，按住才往前走 =====
+      // 松开手（只要进度环没满）就回到原地喘气。这一段没有数字，
+      // 唯一的进度指示是按钮上的环。
+      const holdStrong = holdButton.querySelector("strong");
+      const holdSmall = holdButton.querySelector("small");
+
+      function primeStepsUI(scene, index) {
+        stepScene = scene;
+        stepSceneIndex = index;
+        climb = 0;
+        pendingClimbHold = false;
+        holdMode = "climb-pending";
+        app.style.setProperty("--hold", "0");
+        app.classList.add("is-marching", "is-steps", "is-panting");
+        holdStrong.textContent = "按住";
+        holdSmall.textContent = "跟上队伍";
+        ringProgress.style.strokeDashoffset = "289";
+        playbackIntent = "gate";
+        reinforceHoldGate(index);
+      }
+
+      function primePullVideoUI(scene, index) {
+        pendingPullHold = false;
+        holdMode = "pull-video-pending";
+        pullUntil = scene.pullUntil || 2.4;
+        app.classList.add("is-marching", "is-pull");
+        holdStrong.textContent = "拉他起来";
+        holdSmall.textContent = "按住不放";
+        ringProgress.style.strokeDashoffset = "289";
+        playbackIntent = "gate";
+        reinforceHoldGate(index);
+      }
+
+      function startSteps(scene, index) {
+        pendingClimbHold = false;
+        stepScene = scene;
+        stepSceneIndex = index;
+        climb = 0;
+        holdMode = null;
+        app.style.setProperty("--hold", "0");
+        app.classList.add("is-panting");
+        pantingContextActive = true;
+        films[activeFilm].pause();
+        startPanting(true);
+        playbackIntent = "gate";
+        holdStrong.textContent = "按住";
+        holdSmall.textContent = "跟上队伍";
+        ringProgress.style.strokeDashoffset = "289";
+
+        // 先让停住的画面轻微起伏，并给观众看懂“为什么要按住”。
+        showCaption("风雪越来越大。\n他已经跟不上队伍。", 1600);
+        later(() => {
+          if (sceneIndex !== index) return;
+          beatCaption.classList.remove("is-visible");
+          holdMode = "climb";
+          app.classList.add("is-steps");
+          enterPanting();
+          reinforceHoldGate(index);
+        }, 1750);
+      }
+
+      function enterPanting() {
+        app.classList.add("is-panting");
+        pantingContextActive = true;
+        playbackIntent = "gate";
+        films[activeFilm].pause();
+        startPanting(false);
+        // 越往上喘得越急：2.6s → 1.3s
+        app.style.setProperty("--pant", (2.6 - 1.3 * climb).toFixed(2) + "s");
+        holdStrong.textContent = climb > 0 ? "再按住" : "按住";
+        holdSmall.textContent = "跟上队伍";
+      }
+
+      function leavePanting() {
+        app.classList.remove("is-panting");
+        pantingContextActive = false;
+        stopPanting(false, false);
+        playbackIntent = "playing";
+        films[activeFilm].play().catch(() => {});
+        holdStrong.textContent = "别松手";
+        holdSmall.textContent = "跟上队伍";
+      }
+
+      function climbTick(dt) {
+        const video = films[activeFilm];
+        const climbUntil = stepScene && Number.isFinite(stepScene.climbUntil)
+          ? stepScene.climbUntil
+          : video.duration;
+        // 直接播放成片，不逐帧拖动进度，避免人物步态被切成机械抽动。
+        // 进度环只覆盖“努力前进”的部分，不把后面的失力摔倒算成尚未完成。
+        climb = Number.isFinite(climbUntil) && climbUntil > 0
+          ? Math.min(1, video.currentTime / climbUntil)
+          : Math.min(1, climb + dt / 10000);
+        app.style.setProperty("--hold", climb.toFixed(3));
+        ringProgress.style.strokeDashoffset = String(289 - 289 * climb);
+
+        if (climb >= 1) {
+          holdMode = null;
+          holdActive = false;
+          app.classList.remove("is-panting");
+          pantingContextActive = false;
+          stopPanting(true, false);
+          // 环走满先给出“努力完成”的错觉，按钮悄悄退场；余下视频继续播放，
+          // 约一秒后人物仍然失力跪倒。这里不追加成功文案，以免提前解释结果。
+          app.classList.add("is-climb-done");
+          concealHoldGate();
+          playbackIntent = "playing";
+          video.play().catch(() => {});
+        }
+      }
+
+      function pullVideoTick() {
+        const video = films[activeFilm];
+        const progress = Math.min(1, video.currentTime / pullUntil);
+        ringProgress.style.strokeDashoffset = String(289 - 289 * progress);
+        if (progress < 1) return;
+        holdActive = false;
+        holdMode = null;
+        app.classList.remove("is-marching", "is-pull");
+        concealHoldGate();
+        playbackIntent = "playing";
+        video.play().catch(() => {});
+        emit("assist-pulled-up");
+      }
+
+      function pullTick(dt) {
+        pullProgress = Math.min(1, pullProgress + dt / 2600);
+        ringProgress.style.strokeDashoffset = String(289 - 289 * pullProgress);
+        if (pullProgress >= 1) {
+          holdActive = false;
+          holdMode = null;
+          concealHoldGate();
+          if (pullDone) { const fn = pullDone; pullDone = null; fn(); }
+        }
+      }
+
+      function holdLoop() {
+        holdFrame = 0;
+        if (!holdActive) return;
+        const now = performance.now();
+        const dt = Math.min(120, now - lastTick);
+        lastTick = now;
+        if (holdMode === "climb") climbTick(dt);
+        else if (holdMode === "pull") pullTick(dt);
+        else if (holdMode === "pull-video") pullVideoTick();
+        if (holdActive) holdFrame = requestAnimationFrame(holdLoop);
+      }
+
+      function startHold(event) {
+        if (event) event.preventDefault();
+        if (holdMode === "climb-pending") {
+          pendingClimbHold = true;
+          holdStrong.textContent = "别松手";
+          if (event && Number.isInteger(event.pointerId)) {
+            try { holdButton.setPointerCapture?.(event.pointerId); } catch (_) {}
+          }
+          return;
+        }
+        if (holdMode === "pull-video-pending") {
+          // 首帧尚在切换时按住也有效；armInteraction 完成后会继续沿用这次按住。
+          pendingPullHold = true;
+          holdStrong.textContent = "别松手";
+          if (event && Number.isInteger(event.pointerId)) {
+            try { holdButton.setPointerCapture?.(event.pointerId); } catch (_) {}
+          }
+          return;
+        }
+        if (!holdMode || holdMode === "blind") return;
+        holdActive = true;
+        holdTargetVideo = films[activeFilm];
+        holdTargetSceneIndex = sceneIndex;
+        lastTick = performance.now();
+        if (event && Number.isInteger(event.pointerId)) {
+          try { holdButton.setPointerCapture?.(event.pointerId); } catch (_) {}
+        }
+        hideText();
+        if (holdMode === "climb") {
+          leavePanting();
+        } else if (holdMode === "pull") {
+          holdButton.querySelector("strong").textContent = "别松手";
+        } else if (holdMode === "pull-video") {
+          playbackIntent = "playing";
+          films[activeFilm].play().catch(() => {});
+          holdButton.querySelector("strong").textContent = "别松手";
+        }
+        if (!holdFrame) holdFrame = requestAnimationFrame(holdLoop);
+      }
+
+      function stopHold() {
+        if (holdMode === "climb-pending") {
+          pendingClimbHold = false;
+          holdStrong.textContent = "按住";
+          return;
+        }
+        if (holdMode === "pull-video-pending") {
+          pendingPullHold = false;
+          holdStrong.textContent = "拉他起来";
+          return;
+        }
+        if (!holdActive) return;
+        const targetVideo = holdTargetVideo;
+        const targetSceneIndex = holdTargetSceneIndex;
+        const activeMode = holdMode;
+        holdActive = false;
+        holdTargetVideo = null;
+        holdTargetSceneIndex = -1;
+
+        // 松手事件只允许控制长按开始时的原视频；场景已经推进则直接丢弃。
+        if (!targetVideo || targetSceneIndex !== sceneIndex || targetVideo !== films[activeFilm] || !activeMode) return;
+        targetVideo.pause();
+        playbackIntent = "gate";
+        if (activeMode === "climb") {
+          enterPanting();
+          // 史料本身在说话，不是失败惩罚：每一次停下都再响一遍
+          showDialogue("「不敢坐下歇气。」", "藏族向导 莫日坚", 2600);
+        } else if (activeMode === "pull") {
+          holdButton.querySelector("strong").textContent = "再按住";
+        } else if (activeMode === "pull-video") {
+          holdButton.querySelector("strong").textContent = "再按住";
+        }
+      }
+
+      // ===== 尾卡 =====
+      let finaleIndex = -1;
+      let finaleAutoTimer = 0;
+      let finaleTransitioning = false;
+      let finaleComplete = false;
+      let finalePageReadyAt = 0;
+
+      function clearFinaleAutoTimer() {
+        window.clearTimeout(finaleAutoTimer);
+        finaleAutoTimer = 0;
+      }
+
+      function runFinale() {
+        clearTimers();
+        hideText();
+        stopBeats();
+        app.classList.add("is-finale");
+        finaleIndex = -1;
+        finaleComplete = false;
+        finaleTransitioning = false;
+        clearFinaleAutoTimer();
+        showNextFinale();
+      }
+
+      function showNextFinale() {
+        finaleIndex += 1;
+        if (finaleIndex >= FINALE.length) {
+          finaleComplete = true;
+          finaleTransitioning = false;
+          finaleInner.innerHTML = '<div class="finale-complete">'
+            + '<p class="is-visible">翻越夹金山</p>'
+            + '<div class="finale-actions">'
+            + '<button class="finale-action" id="exitButton" type="button">退出</button>'
+            + '<button class="finale-action" id="replayButton" type="button">重播</button>'
+            + '</div></div>';
+          const closing = finaleInner.querySelector(".finale-complete");
+          document.getElementById("exitButton").onclick = (event) => {
+            event.stopPropagation();
+            if (window.QQNewsUtils) window.QQNewsUtils.closeCurrentPage();
+          };
+          document.getElementById("replayButton").onclick = (event) => {
+            event.stopPropagation();
+            window.location.reload();
+          };
+          requestAnimationFrame(() => closing.classList.add("is-visible"));
+          return;
+        }
+        const item = FINALE[finaleIndex];
+        finaleInner.innerHTML = `<p class="${item.dim ? "dim" : ""}">${item.text.replace(/\n/g, "<br>")}`
+          + `${item.em ? `<em>${item.em}</em>` : ""}</p>`;
+        const p = finaleInner.querySelector("p");
+        // 第一张尾卡先让最后一帧在深色遮罩下缓慢沉下去，再出文字；
+        // 后续卡片只更换正文，不重复等待整段渐暗。
+        const textDelay = finaleIndex === 0 ? 1080 : 60;
+        finalePageReadyAt = performance.now() + textDelay + 650;
+        finaleTransitioning = false;
+        later(() => p.classList.add("is-visible"), textDelay);
+        finaleAutoTimer = window.setTimeout(advanceFinale, textDelay + item.readMs);
+      }
+
+      function advanceFinale() {
+        if (finaleComplete) return;
+        if (finaleTransitioning || performance.now() < finalePageReadyAt) return;
+        clearFinaleAutoTimer();
+        finaleTransitioning = true;
+        const current = finaleInner.querySelector("p");
+        if (current) current.classList.remove("is-visible");
+        window.setTimeout(showNextFinale, 520);
+      }
+
+      finale.addEventListener("click", () => {
+        if (!app.classList.contains("is-finale")) return;
+        if (!finaleComplete) advanceFinale();
+      });
+
+      // ===== 声音 =====
+      function restoreWindAfterDistantSfx() {
+        if (guideVoicePlaying || distantVoicePlaying || distantLaughPlaying) return;
+        if (isMuted || !windWanted) return;
+        if (windAudioContext && windGain) fadeWebWindTo(.82, 900);
+        else fadeAmbientTo(1, 900);
+      }
+
+      function restoreWindAfterGuideVoice() {
+        guideVoicePlaying = false;
+        restoreWindAfterDistantSfx();
+      }
+
+      function restoreWindAfterDistantVoice() {
+        distantVoicePlaying = false;
+        restoreWindAfterDistantSfx();
+      }
+
+      function restoreWindAfterDistantLaugh() {
+        distantLaughPlaying = false;
+        restoreWindAfterDistantSfx();
+      }
+
+      function ensureGuideVoiceBuffer() {
+        if (!windAudioContext || !guideColdVoiceSfx) return Promise.resolve(null);
+        if (guideVoiceBuffer) return Promise.resolve(guideVoiceBuffer);
+        if (!guideVoiceLoading) {
+          guideVoiceLoading = fetch(guideColdVoiceSfx.currentSrc || guideColdVoiceSfx.src)
+            .then((response) => {
+              if (!response.ok) throw new Error("guide-voice-fetch-failed");
+              return response.arrayBuffer();
+            })
+            .then((data) => windAudioContext.decodeAudioData(data))
+            .then((buffer) => { guideVoiceBuffer = buffer; return buffer; })
+            .catch(() => null);
+        }
+        return guideVoiceLoading;
+      }
+
+      function stopGuideVoice() {
+        if (!guideVoicePlaying && !guideVoiceSource
+          && (!guideColdVoiceSfx || guideColdVoiceSfx.paused)) return;
+        guideVoicePlaying = false;
+        if (guideVoiceSource) {
+          const source = guideVoiceSource;
+          guideVoiceSource = null;
+          source.onended = null;
+          try { source.stop(); } catch (_) {}
+        }
+        if (guideColdVoiceSfx) {
+          guideColdVoiceSfx.pause();
+          guideColdVoiceSfx.currentTime = 0;
+        }
+        restoreWindAfterGuideVoice();
+      }
+
+      function playGuideVoice() {
+        const voiceSceneIndex = sceneIndex;
+        const activeScene = SCENES[voiceSceneIndex];
+        if (!hasStarted || isMuted || !activeScene || activeScene.id !== "01-05") return;
+        ensureWebWind().then((usingWebAudio) => {
+          if (sceneIndex !== voiceSceneIndex || isMuted) return;
+          if (!usingWebAudio) {
+            guideVoicePlaying = true;
+            fadeAmbientTo(useMobileDistanceMix ? .76 : .62, 380);
+            guideColdVoiceSfx.muted = false;
+            guideColdVoiceSfx.currentTime = 0;
+            guideColdVoiceSfx.onended = restoreWindAfterGuideVoice;
+            guideColdVoiceSfx.play().catch(() => { guideVoicePlaying = false; });
+            return;
+          }
+          ensureGuideVoiceBuffer().then((buffer) => {
+            if (!buffer || sceneIndex !== voiceSceneIndex || isMuted) return;
+            stopGuideVoice();
+            guideVoicePlaying = true;
+            fadeWebWindTo(useMobileDistanceMix ? .68 : .55, 380);
+            guideVoiceSource = windAudioContext.createBufferSource();
+            guideVoiceSource.buffer = buffer;
+            guideVoiceSource.connect(windAudioContext.destination);
+            guideVoiceSource.onended = () => {
+              guideVoiceSource = null;
+              restoreWindAfterGuideVoice();
+            };
+            guideVoiceSource.start(0);
+          });
+        });
+      }
+
+      function ensureDistantVoiceBuffer() {
+        if (!windAudioContext || !distantVoiceSfx) return Promise.resolve(null);
+        if (distantVoiceBuffer) return Promise.resolve(distantVoiceBuffer);
+        if (!distantVoiceLoading) {
+          distantVoiceLoading = fetch(distantVoiceSfx.currentSrc || distantVoiceSfx.src)
+            .then((response) => {
+              if (!response.ok) throw new Error("voice-fetch-failed");
+              return response.arrayBuffer();
+            })
+            .then((data) => windAudioContext.decodeAudioData(data))
+            .then((buffer) => { distantVoiceBuffer = buffer; return buffer; })
+            .catch(() => null);
+        }
+        return distantVoiceLoading;
+      }
+
+      function ensureDistantLaughBuffer() {
+        if (!windAudioContext || !distantLaughSfx) return Promise.resolve(null);
+        if (distantLaughBuffer) return Promise.resolve(distantLaughBuffer);
+        if (!distantLaughLoading) {
+          distantLaughLoading = fetch(distantLaughSfx.currentSrc || distantLaughSfx.src)
+            .then((response) => {
+              if (!response.ok) throw new Error("laugh-fetch-failed");
+              return response.arrayBuffer();
+            })
+            .then((data) => windAudioContext.decodeAudioData(data))
+            .then((buffer) => { distantLaughBuffer = buffer; return buffer; })
+            .catch(() => null);
+        }
+        return distantLaughLoading;
+      }
+
+      function stopDistantVoice() {
+        if (!distantVoicePlaying && !distantVoiceSource
+          && (!distantVoiceSfx || distantVoiceSfx.paused)) return;
+        distantVoicePlaying = false;
+        if (distantVoiceSource) {
+          const source = distantVoiceSource;
+          distantVoiceSource = null;
+          source.onended = null;
+          try { source.stop(); } catch (_) {}
+        }
+        if (distantVoiceSfx) {
+          distantVoiceSfx.pause();
+          distantVoiceSfx.currentTime = 0;
+        }
+        restoreWindAfterDistantVoice();
+      }
+
+      function playDistantVoice() {
+        const voiceSceneIndex = sceneIndex;
+        const activeScene = SCENES[voiceSceneIndex];
+        if (!hasStarted || isMuted || !activeScene || activeScene.id !== "01-05") return;
+        ensureWebWind().then((usingWebAudio) => {
+          if (sceneIndex !== voiceSceneIndex || isMuted) return;
+          if (!usingWebAudio) {
+            distantVoicePlaying = true;
+            fadeAmbientTo(useMobileDistanceMix ? .76 : .62, 380);
+            distantVoiceSfx.muted = false;
+            distantVoiceSfx.currentTime = 0;
+            distantVoiceSfx.onended = restoreWindAfterDistantVoice;
+            distantVoiceSfx.play().catch(() => { distantVoicePlaying = false; });
+            return;
+          }
+          ensureDistantVoiceBuffer().then((buffer) => {
+            if (!buffer || sceneIndex !== voiceSceneIndex || isMuted) return;
+            stopDistantVoice();
+            distantVoicePlaying = true;
+            fadeWebWindTo(useMobileDistanceMix ? .68 : .55, 380);
+            distantVoiceSource = windAudioContext.createBufferSource();
+            distantVoiceSource.buffer = buffer;
+            distantVoiceSource.connect(windAudioContext.destination);
+            distantVoiceSource.onended = () => {
+              distantVoiceSource = null;
+              restoreWindAfterDistantVoice();
+            };
+            distantVoiceSource.start(0);
+          });
+        });
+      }
+
+      function stopDistantLaugh() {
+        if (!distantLaughPlaying && !distantLaughSource
+          && (!distantLaughSfx || distantLaughSfx.paused)) return;
+        distantLaughPlaying = false;
+        if (distantLaughSource) {
+          const source = distantLaughSource;
+          distantLaughSource = null;
+          source.onended = null;
+          try { source.stop(); } catch (_) {}
+        }
+        if (distantLaughSfx) {
+          distantLaughSfx.pause();
+          distantLaughSfx.currentTime = 0;
+        }
+        restoreWindAfterDistantLaugh();
+      }
+
+      function playDistantLaugh() {
+        const laughSceneIndex = sceneIndex;
+        const activeScene = SCENES[laughSceneIndex];
+        if (!hasStarted || isMuted || !activeScene || activeScene.id !== "01-05") return;
+        ensureWebWind().then((usingWebAudio) => {
+          if (sceneIndex !== laughSceneIndex || isMuted) return;
+          if (!usingWebAudio) {
+            distantLaughPlaying = true;
+            fadeAmbientTo(useMobileDistanceMix ? .76 : .62, 320);
+            distantLaughSfx.muted = false;
+            distantLaughSfx.currentTime = 0;
+            distantLaughSfx.onended = restoreWindAfterDistantLaugh;
+            distantLaughSfx.play().catch(() => { distantLaughPlaying = false; });
+            return;
+          }
+          ensureDistantLaughBuffer().then((buffer) => {
+            if (!buffer || sceneIndex !== laughSceneIndex || isMuted) return;
+            stopDistantLaugh();
+            distantLaughPlaying = true;
+            fadeWebWindTo(useMobileDistanceMix ? .68 : .55, 320);
+            distantLaughSource = windAudioContext.createBufferSource();
+            distantLaughSource.buffer = buffer;
+            distantLaughSource.connect(windAudioContext.destination);
+            distantLaughSource.onended = () => {
+              distantLaughSource = null;
+              restoreWindAfterDistantLaugh();
+            };
+            distantLaughSource.start(0);
+          });
+        });
+      }
+
+      function playSoundEffect(name) {
+        if (name === "mo-rijian-cold") {
+          playGuideVoice();
+          return;
+        }
+        if (name === "yang-chengwu-distant") {
+          playDistantVoice();
+          return;
+        }
+        if (name === "male-laughter-distant") {
+          playDistantLaugh();
+          return;
+        }
+        const activeScene = SCENES[sceneIndex];
+        // 摔倒声只属于 08A 的指定剧情拍点，不能参与任何开场解锁或跨场景补播。
+        if (name !== "fall" || !fallSfx || !hasStarted
+          || !activeScene || activeScene.id !== "08A") return;
+        fallSfx.pause();
+        fallSfx.currentTime = 0;
+        fallSfx.volume = .75;
+        fallSfx.muted = isMuted;
+        fallSfx.play().catch(() => {});
+      }
+
+      function fadePantingTo(target, duration, done) {
+        if (!pantingSfx) return;
+        if (pantFadeFrame) cancelAnimationFrame(pantFadeFrame);
+        const from = pantingSfx.volume;
+        const startedAt = performance.now();
+        const step = (now) => {
+          const progress = Math.min(1, (now - startedAt) / duration);
+          pantingSfx.volume = from + (target - from) * (1 - Math.cos(Math.PI * progress)) / 2;
+          if (progress < 1) pantFadeFrame = requestAnimationFrame(step);
+          else {
+            pantFadeFrame = 0;
+            if (done) done();
+          }
+        };
+        pantFadeFrame = requestAnimationFrame(step);
+      }
+
+      function startPanting(restart = false) {
+        if (!pantingSfx || !hasStarted || !pantingContextActive
+          || !app.classList.contains("is-panting") || isMuted || document.hidden) return;
+        const token = ++pantAttemptToken;
+        if (restart) pantingSfx.currentTime = 0;
+        const needsFade = pantingSfx.paused || pantingSfx.volume < .99;
+        pantingSfx.muted = false;
+        if (pantingSfx.paused) pantingSfx.volume = 0;
+        const attempt = pantingSfx.play();
+        const onStarted = () => {
+          if (token !== pantAttemptToken) return;
+          if (needsFade) fadePantingTo(1, 520);
+        };
+        if (attempt && attempt.then) attempt.then(onStarted).catch(() => {});
+        else onStarted();
+      }
+
+      function stopPanting(reset = false, immediate = false) {
+        if (!pantingSfx) return;
+        const token = ++pantAttemptToken;
+        if (pantFadeFrame) cancelAnimationFrame(pantFadeFrame);
+        pantFadeFrame = 0;
+        const finish = () => {
+          if (token !== pantAttemptToken) return;
+          pantingSfx.pause();
+          pantingSfx.volume = 0;
+          if (reset) pantingSfx.currentTime = 0;
+        };
+        if (immediate || pantingSfx.paused) finish();
+        else fadePantingTo(0, 420, finish);
+      }
+
+      function fadeAmbientTo(target, duration, done) {
+        if (!ambientWind) return;
+        if (windFadeFrame) cancelAnimationFrame(windFadeFrame);
+        const from = ambientWind.volume;
+        const startedAt = performance.now();
+        const step = (now) => {
+          const progress = Math.min(1, (now - startedAt) / duration);
+          ambientWind.volume = from + (target - from) * (1 - Math.cos(Math.PI * progress)) / 2;
+          if (progress < 1) windFadeFrame = requestAnimationFrame(step);
+          else {
+            windFadeFrame = 0;
+            if (done) done();
+          }
+        };
+        windFadeFrame = requestAnimationFrame(step);
+      }
+
+      function fadeWebWindTo(target, duration) {
+        if (!windAudioContext || !windGain) return;
+        const now = windAudioContext.currentTime;
+        const gain = windGain.gain;
+        if (typeof gain.cancelAndHoldAtTime === "function") gain.cancelAndHoldAtTime(now);
+        else {
+          gain.cancelScheduledValues(now);
+          gain.setValueAtTime(gain.value, now);
+        }
+        gain.linearRampToValueAtTime(target, now + Math.max(.02, duration / 1000));
+      }
+
+      async function ensureWebWind() {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass || !ambientWind) return false;
+        if (!windAudioContext) {
+          windAudioContext = new AudioContextClass();
+          windGain = windAudioContext.createGain();
+          windGain.gain.value = 0;
+          windGain.connect(windAudioContext.destination);
+        }
+        if (windAudioContext.state === "suspended") {
+          try { await windAudioContext.resume(); } catch (_) { return false; }
+        }
+        if (!windLoading) {
+          windLoading = fetch(ambientWind.currentSrc || ambientWind.src)
+            .then((response) => {
+              if (!response.ok) throw new Error("wind-fetch-failed");
+              return response.arrayBuffer();
+            })
+            .then((data) => windAudioContext.decodeAudioData(data))
+            .then((buffer) => { windBuffer = buffer; return buffer; })
+            .catch(() => null);
+        }
+        if (!windBuffer) await windLoading;
+        if (!windBuffer) return false;
+        if (!windSource) {
+          windSource = windAudioContext.createBufferSource();
+          windSource.buffer = windBuffer;
+          windSource.loop = true;
+          windSource.connect(windGain);
+          windSource.start(0);
+        }
+        // 首次用户手势解锁环境声后，顺带把后续远处配音解码进同一音频上下文；
+        // 这里只缓存，不播放，不会在开场漏音。
+        ensureDistantVoiceBuffer();
+        ensureDistantLaughBuffer();
+        return true;
+      }
+
+      function primeAmbientWind() {
+        if (!ambientWind || isMuted) return;
+        primeBackgroundMusic();
+        windWanted = true;
+        const token = ++windAttemptToken;
+        ensureWebWind().then((usingWebAudio) => {
+          if (token !== windAttemptToken || !windWanted || isMuted) return;
+          if (usingWebAudio) {
+            // Web Audio 不会在切换正片 video 时被手机抢停，GainNode 也能可靠渐变。
+            ambientWind.pause();
+            ambientWind.muted = true;
+            fadeWebWindTo(.82, 1400);
+            return;
+          }
+          // 旧浏览器回退；支持 volume 的设备仍保留渐入。
+          const needsFade = ambientWind.paused || ambientWind.volume < .99;
+          ambientWind.muted = false;
+          if (needsFade) ambientWind.volume = 0;
+          const started = ambientWind.play();
+          const onStarted = () => {
+            if (token !== windAttemptToken || !windWanted || isMuted) return;
+            if (needsFade) fadeAmbientTo(1, 1400);
+          };
+          if (started && started.then) started.then(onStarted).catch(() => {});
+          else onStarted();
+        });
+      }
+
+      function cancelBackgroundMusicIntro() {
+        clearTimeout(backgroundMusicIntroTimer);
+        backgroundMusicIntroTimer = 0;
+        cancelAnimationFrame(backgroundMusicFadeFrame);
+        backgroundMusicFadeFrame = 0;
+      }
+
+      // 原曲每 16 秒完成一轮同和声旋律。正片中段只循环配器较克制的一轮；
+      // 雪幕散开后，在最近的小节线退出循环，接入同旋律的最终强化段。
+      const MUSIC_MIDDLE_START = 20.98;
+      const MUSIC_MIDDLE_END = 36.98;
+      const MUSIC_FINALE_START = 52.98;
+      const MUSIC_BAR_SECONDS = 2;
+      const MUSIC_SEAM_FADE = useMobileDistanceMix ? .56 : .24;
+      const MUSIC_SEAM_RECOVER_MS = useMobileDistanceMix ? 720 : 320;
+      const MUSIC_SEEK_FALLBACK_MS = useMobileDistanceMix ? 460 : 220;
+      const MUSIC_BASE_VOLUME = .5 * MOBILE_MUSIC_GAIN;
+      const MUSIC_PULL_VOLUME = .72 * MOBILE_MUSIC_GAIN;
+      const MUSIC_FINALE_ENTRY_VOLUME = .72 * MOBILE_MUSIC_GAIN;
+      const MUSIC_FINALE_PEAK_VOLUME = 1 * MOBILE_MUSIC_GAIN;
+
+      function ensureSharedAudioContext() {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return null;
+        if (!windAudioContext) {
+          windAudioContext = new AudioContextClass();
+          windGain = windAudioContext.createGain();
+          windGain.gain.value = 0;
+          windGain.connect(windAudioContext.destination);
+        }
+        if (useMobileDistanceMix && muteStoryVideoAudioOnMobile) {
+          films.forEach((film) => {
+            if (mobileFilmAudioRoutes.has(film)) return;
+            try {
+              const source = windAudioContext.createMediaElementSource(film);
+              const gain = windAudioContext.createGain();
+              gain.gain.value = 1;
+              source.connect(gain);
+              gain.connect(windAudioContext.destination);
+              mobileFilmAudioRoutes.set(film, { source, gain });
+            } catch (_) {}
+          });
+          if (mobileFilmAudioRoutes.size === films.length) {
+            muteStoryVideoAudioOnMobile = false;
+          }
+        }
+        return windAudioContext;
+      }
+
+      function fadeWebBackgroundMusicTo(target, duration) {
+        if (!windAudioContext || !webMusicGain) return;
+        const now = windAudioContext.currentTime;
+        const gain = webMusicGain.gain;
+        if (typeof gain.cancelAndHoldAtTime === "function") gain.cancelAndHoldAtTime(now);
+        else {
+          const current = gain.value;
+          gain.cancelScheduledValues(now);
+          gain.setValueAtTime(current, now);
+        }
+        gain.linearRampToValueAtTime(target, now + Math.max(.01, duration / 1000));
+      }
+
+      function currentWebMusicPosition() {
+        if (!windAudioContext || !webMusicSource) return 0;
+        const elapsed = Math.max(0, windAudioContext.currentTime - webMusicStartsAt);
+        if (elapsed < MUSIC_MIDDLE_END) return elapsed;
+        return MUSIC_MIDDLE_START
+          + ((elapsed - MUSIC_MIDDLE_END) % (MUSIC_MIDDLE_END - MUSIC_MIDDLE_START));
+      }
+
+      function requestWebBackgroundMusicFinale() {
+        if (!windAudioContext || !webMusicBuffer || !webMusicSource
+          || backgroundMusicMode === "finale") return;
+        const position = currentWebMusicPosition();
+        const phase = Math.max(0, position - MUSIC_MIDDLE_START);
+        const nextBar = MUSIC_MIDDLE_START
+          + (Math.floor(phase / MUSIC_BAR_SECONDS) + 1) * MUSIC_BAR_SECONDS;
+        const delay = position >= MUSIC_MIDDLE_START && position < MUSIC_MIDDLE_END
+          ? Math.max(.04, Math.min(MUSIC_BAR_SECONDS, nextBar - position))
+          : .04;
+        const switchAt = windAudioContext.currentTime + delay;
+        const outgoingSource = webMusicSource;
+        const outgoingGain = webMusicGain;
+
+        const finaleGain = windAudioContext.createGain();
+        const finaleSource = windAudioContext.createBufferSource();
+        finaleSource.buffer = webMusicBuffer;
+        finaleSource.connect(finaleGain);
+        finaleGain.connect(windAudioContext.destination);
+
+        // 旧段和尾段以相同响度交叉衔接，避免旧段先静音、尾段再渐入造成割裂。
+        const crossfadeSeconds = .34;
+        const crossfadeEnd = switchAt + crossfadeSeconds;
+        outgoingGain.gain.cancelScheduledValues(windAudioContext.currentTime);
+        outgoingGain.gain.setValueAtTime(MUSIC_FINALE_ENTRY_VOLUME,
+          windAudioContext.currentTime);
+        outgoingGain.gain.setValueAtTime(MUSIC_FINALE_ENTRY_VOLUME, switchAt);
+        outgoingGain.gain.linearRampToValueAtTime(0, crossfadeEnd);
+
+        finaleGain.gain.setValueAtTime(0, switchAt);
+        finaleGain.gain.linearRampToValueAtTime(MUSIC_FINALE_ENTRY_VOLUME, crossfadeEnd);
+        // 拉人后即开始清晰渐强，在雪雾与会师画面出现前达到高潮。
+        finaleGain.gain.linearRampToValueAtTime(MUSIC_FINALE_PEAK_VOLUME, switchAt + 6.6);
+        finaleSource.start(switchAt, MUSIC_FINALE_START);
+        try { outgoingSource.stop(crossfadeEnd + .03); } catch (_) {}
+
+        webMusicSource = finaleSource;
+        webMusicGain = finaleGain;
+        webMusicStartsAt = switchAt - MUSIC_FINALE_START;
+        backgroundMusicMode = "finale";
+        backgroundMusicTargetVolume = MUSIC_FINALE_PEAK_VOLUME;
+      }
+
+      async function primeWebBackgroundMusic() {
+        if (isMuted) return;
+        const context = ensureSharedAudioContext();
+        if (!context) return;
+        if (context.state === "suspended") {
+          try { await context.resume(); } catch (_) {}
+        }
+        if (webMusicSource) {
+          fadeWebBackgroundMusicTo(backgroundMusicTargetVolume, 260);
+          return;
+        }
+        if (!webMusicLoading) {
+          webMusicLoading = fetch(backgroundMusic.currentSrc || backgroundMusic.src)
+            .then((response) => {
+              if (!response.ok) throw new Error("music-fetch-failed");
+              return response.arrayBuffer();
+            })
+            .then((data) => context.decodeAudioData(data))
+            .then((buffer) => { webMusicBuffer = buffer; return buffer; })
+            .catch(() => null);
+        }
+        const buffer = webMusicBuffer || await webMusicLoading;
+        if (!buffer || webMusicSource || isMuted) return;
+
+        webMusicGain = context.createGain();
+        webMusicGain.gain.value = 0;
+        webMusicGain.connect(context.destination);
+        webMusicSource = context.createBufferSource();
+        webMusicSource.buffer = buffer;
+        webMusicSource.loop = true;
+        webMusicSource.loopStart = MUSIC_MIDDLE_START;
+        webMusicSource.loopEnd = MUSIC_MIDDLE_END;
+        webMusicSource.connect(webMusicGain);
+        webMusicStartsAt = context.currentTime + .9;
+        webMusicGain.gain.setValueAtTime(0, webMusicStartsAt);
+        webMusicGain.gain.linearRampToValueAtTime(MUSIC_BASE_VOLUME, webMusicStartsAt + 2.2);
+        webMusicSource.start(webMusicStartsAt, 0);
+        backgroundMusicStarted = true;
+        backgroundMusicStarting = false;
+        if (backgroundMusicFinaleRequested) requestWebBackgroundMusicFinale();
+      }
+
+      function liftBackgroundMusicForPull() {
+        if (!backgroundMusic || backgroundMusicMode === "finale") return;
+        if (useMobileDistanceMix) {
+          backgroundMusicTargetVolume = MUSIC_PULL_VOLUME;
+          fadeWebBackgroundMusicTo(MUSIC_PULL_VOLUME, 10000);
+          return;
+        }
+        backgroundMusicLiftFromVolume = backgroundMusic.volume;
+        backgroundMusicLiftStartedAt = performance.now();
+        backgroundMusicLiftDuration = 10000;
+        backgroundMusicTargetVolume = MUSIC_PULL_VOLUME;
+        if (!isMuted && backgroundMusicStarted && !backgroundMusic.paused) {
+          // 拉人动作开始后缓慢释放增强音轨的响度余量，
+          // 到翻过垭口时已明显抬升，但仍给最终会师留出最后一级空间。
+          fadeBackgroundMusicTo(MUSIC_PULL_VOLUME, 10000);
+        }
+      }
+
+      function currentBackgroundMusicBedVolume() {
+        if (!backgroundMusicLiftStartedAt || !backgroundMusicLiftDuration) {
+          return backgroundMusicTargetVolume;
+        }
+        const progress = Math.min(1,
+          (performance.now() - backgroundMusicLiftStartedAt) / backgroundMusicLiftDuration);
+        return backgroundMusicLiftFromVolume
+          + (backgroundMusicTargetVolume - backgroundMusicLiftFromVolume) * progress;
+      }
+
+      function restoreBackgroundMusicBedAfterSeam() {
+        const intendedNow = currentBackgroundMusicBedVolume();
+        fadeBackgroundMusicTo(intendedNow, MUSIC_SEAM_RECOVER_MS, () => {
+          const elapsed = performance.now() - backgroundMusicLiftStartedAt;
+          const remaining = backgroundMusicLiftStartedAt
+            ? Math.max(0, backgroundMusicLiftDuration - elapsed)
+            : 0;
+          if (remaining > 0 && backgroundMusicMode !== "finale") {
+            fadeBackgroundMusicTo(backgroundMusicTargetVolume, remaining);
+          }
+        });
+      }
+
+      function fadeBackgroundMusicTo(target, duration, done) {
+        cancelAnimationFrame(backgroundMusicFadeFrame);
+        backgroundMusicFadeFrame = 0;
+        if (!backgroundMusic) return;
+        const from = backgroundMusic.volume;
+        const beganAt = performance.now();
+        const step = (now) => {
+          if (isMuted || backgroundMusic.paused) return;
+          const progress = Math.min(1, (now - beganAt) / Math.max(1, duration));
+          backgroundMusic.volume = from + (target - from) * progress;
+          if (progress < 1) backgroundMusicFadeFrame = requestAnimationFrame(step);
+          else {
+            backgroundMusicFadeFrame = 0;
+            if (done) done();
+          }
+        };
+        backgroundMusicFadeFrame = requestAnimationFrame(step);
+      }
+
+      function enterBackgroundMusicFinale() {
+        if (!backgroundMusic || backgroundMusicMode === "finale") return;
+        backgroundMusicMode = "finale";
+        backgroundMusicFinaleSwitchAt = null;
+        backgroundMusic.volume = MUSIC_FINALE_ENTRY_VOLUME;
+        let revealed = false;
+        const reveal = () => {
+          if (revealed || backgroundMusicMode !== "finale" || isMuted) return;
+          revealed = true;
+          // 不再从静音重新渐入；直接承接原有响度，再用 6.6 秒明显推向高潮。
+          backgroundMusic.volume = MUSIC_FINALE_ENTRY_VOLUME;
+          backgroundMusicTargetVolume = MUSIC_FINALE_PEAK_VOLUME;
+          fadeBackgroundMusicTo(MUSIC_FINALE_PEAK_VOLUME, 6600);
+        };
+        backgroundMusic.addEventListener("seeked", reveal, { once: true });
+        backgroundMusic.currentTime = MUSIC_FINALE_START;
+        backgroundMusic.play().catch(() => {});
+        // 手机 MP3 seek 较慢，必须等 seeked；超时只作为极端 WebView 的兜底。
+        window.setTimeout(reveal, useMobileDistanceMix ? 560 : 260);
+      }
+
+      function requestBackgroundMusicFinale() {
+        if (backgroundMusicFinaleRequested || backgroundMusicMode === "finale") return;
+        backgroundMusicFinaleRequested = true;
+        if (useMobileDistanceMix) {
+          requestWebBackgroundMusicFinale();
+          return;
+        }
+        if (!backgroundMusicStarted || !backgroundMusic || isMuted) return;
+        const now = backgroundMusic.currentTime;
+        if (now < MUSIC_MIDDLE_START || now >= MUSIC_MIDDLE_END) {
+          enterBackgroundMusicFinale();
+          return;
+        }
+        const barsPassed = Math.floor((now - MUSIC_MIDDLE_START) / MUSIC_BAR_SECONDS);
+        backgroundMusicFinaleSwitchAt = Math.min(
+          MUSIC_MIDDLE_END,
+          MUSIC_MIDDLE_START + (barsPassed + 1) * MUSIC_BAR_SECONDS
+        );
+        startBackgroundMusicConductor();
+      }
+
+      function startBackgroundMusicConductor() {
+        if (backgroundMusicConductorFrame || !backgroundMusic) return;
+        const tick = () => {
+          backgroundMusicConductorFrame = 0;
+          if (isMuted || backgroundMusic.paused || !backgroundMusicStarted) return;
+          const now = backgroundMusic.currentTime;
+
+          if (backgroundMusicMode !== "finale" && !backgroundMusicLoopSeeking) {
+            if (backgroundMusicFinaleRequested) {
+              if (backgroundMusicFinaleSwitchAt === null) {
+                requestBackgroundMusicFinale();
+              }
+              const switchAt = backgroundMusicFinaleSwitchAt;
+              if (switchAt !== null) {
+                const fadeFrom = switchAt - MUSIC_SEAM_FADE;
+                if (now >= fadeFrom) {
+                  backgroundMusic.volume = Math.max(0, Math.min(1,
+                    (switchAt - now) / MUSIC_SEAM_FADE)) * currentBackgroundMusicBedVolume();
+                }
+                if (now >= switchAt - .025) enterBackgroundMusicFinale();
+              }
+            } else if (now >= MUSIC_MIDDLE_END - MUSIC_SEAM_FADE) {
+              backgroundMusic.volume = Math.max(0, Math.min(1,
+                (MUSIC_MIDDLE_END - now) / MUSIC_SEAM_FADE)) * currentBackgroundMusicBedVolume();
+              if (now >= MUSIC_MIDDLE_END - .025) {
+                const overflow = Math.max(0, now - MUSIC_MIDDLE_END);
+                backgroundMusicLoopSeeking = true;
+                let resumed = false;
+                const resumeLoop = () => {
+                  if (resumed || backgroundMusicMode === "finale") return;
+                  resumed = true;
+                  backgroundMusicLoopSeeking = false;
+                  restoreBackgroundMusicBedAfterSeam();
+                };
+                backgroundMusic.addEventListener("seeked", resumeLoop, { once: true });
+                backgroundMusic.currentTime = MUSIC_MIDDLE_START + overflow;
+                backgroundMusic.volume = 0;
+                window.setTimeout(resumeLoop, MUSIC_SEEK_FALLBACK_MS);
+              }
+            }
+          }
+          backgroundMusicConductorFrame = requestAnimationFrame(tick);
+        };
+        backgroundMusicConductorFrame = requestAnimationFrame(tick);
+      }
+
+      function fadeInBackgroundMusic() {
+        cancelBackgroundMusicIntro();
+        backgroundMusic.volume = 0;
+        backgroundMusicIntroTimer = window.setTimeout(() => {
+          backgroundMusicIntroTimer = 0;
+          const beganAt = performance.now();
+          const step = (now) => {
+            if (isMuted || backgroundMusic.paused) return;
+            const progress = Math.min(1, (now - beganAt) / 2200);
+            backgroundMusic.volume = progress * MUSIC_BASE_VOLUME;
+            if (progress < 1) backgroundMusicFadeFrame = requestAnimationFrame(step);
+            else {
+              backgroundMusicFadeFrame = 0;
+              startBackgroundMusicConductor();
+            }
+          };
+          backgroundMusicFadeFrame = requestAnimationFrame(step);
+        }, 900);
+      }
+
+      // 首次由用户手势同时解锁风声和音乐；音乐晚 0.9 秒渐入。
+      // 中段循环和尾声出口由上面的音乐调度器控制，不依赖 audio 原生整曲循环。
+      function primeBackgroundMusic() {
+        if (useMobileDistanceMix) {
+          primeWebBackgroundMusic();
+          return;
+        }
+        if (!backgroundMusic || isMuted || backgroundMusicStarting) return;
+        backgroundMusic.muted = false;
+        if (backgroundMusicStarted) {
+          backgroundMusic.volume = backgroundMusicTargetVolume;
+          if (backgroundMusicFinaleRequested && backgroundMusicMode !== "finale") {
+            enterBackgroundMusicFinale();
+          } else if (backgroundMusic.paused) {
+            backgroundMusic.play().then(startBackgroundMusicConductor).catch(() => {});
+          } else {
+            startBackgroundMusicConductor();
+          }
+          return;
+        }
+        backgroundMusicStarting = true;
+        backgroundMusic.currentTime = 0;
+        backgroundMusic.volume = 0;
+        const started = backgroundMusic.play();
+        const ready = () => {
+          backgroundMusicStarted = true;
+          backgroundMusicStarting = false;
+          if (backgroundMusicFinaleRequested) enterBackgroundMusicFinale();
+          else fadeInBackgroundMusic();
+        };
+        const blocked = () => { backgroundMusicStarting = false; };
+        if (started && started.then) started.then(ready).catch(blocked);
+        else ready();
+      }
+
+      function toggleSound() {
+        isMuted = !isMuted;
+        films.forEach((film, index) => {
+          const forcedSilent = index === activeFilm
+            && Boolean(SCENES[sceneIndex] && SCENES[sceneIndex].muteVideoAudio);
+          film.muted = isMuted || muteStoryVideoAudioOnMobile || forcedSilent;
+        });
+        if (fallSfx) fallSfx.muted = isMuted;
+        if (isMuted) stopPanting(false, false);
+        if (isMuted) stopGuideVoice();
+        if (isMuted) stopDistantVoice();
+        if (isMuted) stopDistantLaugh();
+        else if (app.classList.contains("is-panting")) startPanting(false);
+        if (ambientWind) {
+          if (isMuted) {
+            windWanted = false;
+            windAttemptToken += 1;
+            fadeWebWindTo(0, 700);
+            fadeAmbientTo(0, 600, () => {
+              if (!isMuted) return;
+              ambientWind.pause();
+              ambientWind.muted = true;
+            });
+          } else {
+            primeAmbientWind(false);
+          }
+        }
+        if (backgroundMusic) {
+          if (useMobileDistanceMix) {
+            if (isMuted) fadeWebBackgroundMusicTo(0, 300);
+            else primeBackgroundMusic();
+          } else {
+            if (isMuted) {
+              cancelBackgroundMusicIntro();
+              backgroundMusic.pause();
+              backgroundMusic.muted = true;
+            } else {
+              primeBackgroundMusic();
+            }
+          }
+        }
+        syncSoundState();
+        emit("sound", { muted: isMuted });
+      }
+      function syncSoundState() {
+        soundButton.classList.toggle("is-muted", isMuted);
+        soundButton.textContent = isMuted ? "声音关" : "声音开";
+        soundButton.setAttribute("aria-label", isMuted ? "开启声音" : "关闭声音");
+      }
+
+      // ===== 开场 =====
+      // 第一次“继续”的用户手势同时解锁三路正片。片名卡随后可自动退场，
+      // 不会因为定时器不属于用户手势而被 iOS / 微信 WebView 拦截播放。
+      function unlockStoryFilms() {
+        films.forEach((film) => {
+          if (film.dataset.unlocked) return;
+          film.dataset.unlocked = "1";
+          film.muted = true;
+          const pr = film.play();
+          if (pr && pr.then) pr.then(() => film.pause()).catch(() => {});
+        });
+      }
+
+      function primeOpeningVideos() {
+        const openingScenes = futureVideoScenes(-1, 3);
+        // filmA 此时只是片名背景下的隐藏底片；B、C 先放 01、02，A 放 03。
+        const slots = [films[1], films[2], films[0]];
+        openingScenes.forEach((scene, index) => {
+          if (slots[index]) prepareFilm(slots[index], srcOf(scene.video));
+        });
+        unlockStoryFilms();
+      }
+
+      async function begin() {
+        if (hasStarted) return;
+        hasStarted = true;
+        app.classList.add("has-started", "is-playing");
+        opening.classList.add("is-gone");
+        poster.classList.add("is-gone");
+        emit("start");
+
+        // 只在用户手势里完成一次解锁
+        if (snowfall && !snowfall.dataset.loaded) {
+          snowfall.dataset.loaded = "1";
+          snowfall.muted = true;
+          snowfall.src = CAN_VP9 ? "assets/snow-loop.webm" : "assets/snow-loop.mp4";
+          snowfall.play().catch(() => {});
+        }
+
+        unlockStoryFilms();
+
+        isMuted = false;
+        primeAmbientWind(false);
+        syncSoundState();
+        // 先让正确的第 01 段真正起播，再退掉片名背景。
+        // 即使网络较慢，也只会多停留片名卡，不会露出 +2 缓存槽中的后续画面。
+        await playScene(0);
+        if (sceneLoop) sceneLoop.classList.add("is-hidden");
+      }
+
+      // ===== 开场雪山循环背景 =====
+      (() => {
+        const loop = sceneLoop;
+        if (!loop) return;
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { loop.remove(); return; }
+        loop.classList.add("is-ready");
+        app.classList.add("has-loop");
+        prologue.classList.add("has-loop");
+        loop.addEventListener("error", () => loop.removeAttribute("src"), { once: true });
+        loop.muted = true;
+        loop.src = CAN_VP9
+          ? "generated-videos/prologue-mountain-loop.webm"
+          : "generated-videos/prologue-mountain-loop.mp4";
+        loop.play().catch(() => {});
+        ["loadeddata", "canplay"].forEach((type) => {
+          loop.addEventListener(type, () => loop.play().catch(() => {}), { once: true });
+        });
+      })();
+
+      // ===== 背景交代：三段依次淡入，可随时跳过 =====
+      app.classList.add("prologue-on");
+      const prologueLines = [...prologue.querySelectorAll("p")];
+      const prologueTimers = [];
+      let prologueDone = false;
+      const PROLOGUE_LINE_START_MS = 700;
+      const PROLOGUE_LINE_STAGGER_MS = 2400;
+      const PROLOGUE_SKIP_DELAY_MS = PROLOGUE_LINE_START_MS
+        + prologueLines.length * PROLOGUE_LINE_STAGGER_MS;
+      // 约 80 字：首行出现后总阅读时间约 12.8 秒，按钮完整提示约 5.5 秒。
+      const PROLOGUE_AUTO_ADVANCE_MS = 13500;
+
+      function runPrologue() {
+        prologueLines.forEach((line, index) => {
+          prologueTimers.push(window.setTimeout(() => line.classList.add("is-visible"),
+            PROLOGUE_LINE_START_MS + index * PROLOGUE_LINE_STAGGER_MS));
+        });
+        prologueTimers.push(window.setTimeout(
+          () => prologueSkip.classList.add("is-visible"), PROLOGUE_SKIP_DELAY_MS));
+        prologueTimers.push(window.setTimeout(endPrologue, PROLOGUE_AUTO_ADVANCE_MS));
+      }
+
+      function endPrologue() {
+        if (prologueDone) return;
+        prologueDone = true;
+        prologueTimers.forEach((timer) => window.clearTimeout(timer));
+        isMuted = false;
+        primeAmbientWind();
+        syncSoundState();
+        primeOpeningVideos();
+        prologue.classList.add("is-gone");
+        app.classList.remove("prologue-on");
+        app.classList.add("is-title-card");
+        emit("prologue-done");
+
+        const enterFilm = () => {
+          titlePreload.classList.remove("is-visible");
+          // 全片完整缓存后，片名卡再按电影式节奏停留 3.2 秒。
+          titleAutoTimer = window.setTimeout(begin, 3200);
+        };
+
+        if (fullPreloadReady) {
+          enterFilm();
+        } else {
+          titlePreload.textContent = `影像准备中 · ${fullyCachedCount}/${allVideoSources.length}`;
+          titlePreload.classList.add("is-visible");
+          allVideosReady.then(() => {
+            if (fullPreloadFailed) {
+              titlePreload.textContent = "影像准备失败，请检查网络后刷新页面";
+              titlePreload.classList.add("is-visible");
+              return;
+            }
+            enterFilm();
+          });
+        }
+      }
+
+      prologue.addEventListener("click", () => {
+        // 浏览器禁止无手势播放有声媒体；用户第一次触碰序幕时立即开启全片风声。
+        isMuted = false;
+        primeAmbientWind();
+        syncSoundState();
+        const unfinished = prologueLines.some((line) => !line.classList.contains("is-visible"));
+        if (unfinished) {
+          prologueTimers.forEach((timer) => window.clearTimeout(timer));
+          prologueLines.forEach((line) => line.classList.add("is-visible"));
+          prologueSkip.classList.add("is-visible");
+          return;
+        }
+        endPrologue();
+      });
+      prologueSkip.addEventListener("click", (event) => { event.stopPropagation(); endPrologue(); });
+      runPrologue();
+
+      // ===== 史料浮层 =====
+      function openArchive() {
+        archive.classList.add("is-open");
+        films[activeFilm].pause();
+        stopHold();
+        emit("archive-open");
+      }
+      function closeArchive() {
+        archive.classList.remove("is-open");
+        emit("archive-close");
+      }
+
+      archiveToggle.addEventListener("click", openArchive);
+      archiveClose.addEventListener("click", closeArchive);
+      archive.addEventListener("click", (event) => { if (event.target === archive) closeArchive(); });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && archive.classList.contains("is-open")) closeArchive();
+      });
+
+      soundButton.addEventListener("click", toggleSound);
+      holdButton.addEventListener("pointerdown", startHold);
+      holdButton.addEventListener("pointerup", stopHold);
+      holdButton.addEventListener("pointercancel", stopHold);
+      holdButton.addEventListener("pointerleave", stopHold);
+
+      films.forEach((film) => {
+        film.addEventListener("error", () => {
+          const scene = SCENES[sceneIndex];
+          const expectedSrc = scene ? srcOf(scene.video) : "";
+          // 后台预载层即使失败，也不能在当前正常画面上弹出错误提示。
+          if (!hasStarted || film !== films[activeFilm]
+            || !film.classList.contains("is-active")
+            || !expectedSrc || film.dataset.preloadedSrc !== expectedSrc) return;
+
+          // Blob URL 在少数 iOS WebView 中可能解码失败。第一次失败先切回同源直链，
+          // 保留当前时间继续加载；只有直链也失败才向用户报告。
+          const fallbackSrc = scene.video && expectedSrc === scene.video.webm && scene.video.mp4
+            ? scene.video.mp4
+            : expectedSrc;
+          if (film.dataset.directRetrySrc !== fallbackSrc) {
+            film.dataset.directRetrySrc = fallbackSrc;
+            const resumeAt = Number.isFinite(film.currentTime) ? film.currentTime : 0;
+            const shouldResume = playbackIntent === "playing";
+            // 轻量 WebM 若在特定 WebView 中确实解码失败，只回退当前这一段的 H.264，
+            // 不让整部片重新加载全部大体积 MP4。
+            film.src = fallbackSrc;
+            film.load();
+            film.addEventListener("loadedmetadata", () => {
+              if (sceneIndex < 0 || film !== films[activeFilm]) return;
+              if (resumeAt > 0 && Number.isFinite(film.duration)) {
+                film.currentTime = Math.min(resumeAt, Math.max(0, film.duration - .08));
+              }
+            }, { once: true });
+            film.addEventListener("canplay", () => {
+              if (film !== films[activeFilm]) return;
+              film.muted = isMuted || muteStoryVideoAudioOnMobile || Boolean(scene.muteVideoAudio);
+              app.classList.remove("is-loading");
+              if (shouldResume) film.play().catch(() => {});
+            }, { once: true });
+            return;
+          }
+          status.textContent = "这一段视频没能加载";
+          app.classList.add("is-loading");
+        });
+      });
+
+      document.addEventListener("visibilitychange", () => {
+        const active = films[activeFilm];
+        if (document.hidden) {
+          // 只记录原本正在播放的状态；回到页面后恢复普通剧情，不能永久卡在离开时那一帧。
+          resumeAfterVisibility = hasStarted && !active.paused && !archive.classList.contains("is-open");
+          active.pause();
+          resumeWindAfterVisibility = windWanted || (!!ambientWind && !ambientWind.paused);
+          resumeMusicAfterVisibility = useMobileDistanceMix
+            ? backgroundMusicStarted
+            : !!backgroundMusic && backgroundMusicStarted && !backgroundMusic.paused;
+          windAttemptToken += 1;
+          if (ambientWind) ambientWind.pause();
+          if (backgroundMusic && !useMobileDistanceMix) {
+            cancelBackgroundMusicIntro();
+            backgroundMusic.pause();
+          }
+          if (windAudioContext && windAudioContext.state === "running") {
+            windAudioContext.suspend().catch(() => {});
+          }
+          stopPanting(false, true);
+          stopHold();
+          return;
+        }
+        if (resumeWindAfterVisibility && ambientWind) {
+          resumeWindAfterVisibility = false;
+          primeAmbientWind();
+        }
+        if (resumeMusicAfterVisibility && !isMuted) {
+          resumeMusicAfterVisibility = false;
+          primeBackgroundMusic();
+        }
+        if (app.classList.contains("is-panting")) startPanting(false);
+        if (!resumeAfterVisibility) return;
+        resumeAfterVisibility = false;
+        const intentionallyWaiting = app.classList.contains("is-waiting")
+          || app.classList.contains("is-marching")
+          || app.classList.contains("is-finale")
+          || archive.classList.contains("is-open");
+        if (!intentionallyWaiting) active.play().catch(() => {});
+      });
+
+      syncSoundState();
+      // 喘息不参与开场音频解锁，只预载；直到体力不支的交互空挡才允许播放。
+      if (pantingSfx) {
+        pantingSfx.pause();
+        pantingSfx.currentTime = 0;
+        pantingSfx.volume = 0;
+        pantingSfx.muted = true;
+      }
+      // 摔倒音效同样只预载不预播放，避免部分移动端在静音解锁回调中漏音。
+      if (fallSfx) {
+        fallSfx.pause();
+        fallSfx.currentTime = 0;
+        fallSfx.muted = true;
+      }
+      if (distantVoiceSfx) {
+        distantVoiceSfx.pause();
+        distantVoiceSfx.currentTime = 0;
+        distantVoiceSfx.muted = true;
+      }
+      if (guideColdVoiceSfx) {
+        guideColdVoiceSfx.pause();
+        guideColdVoiceSfx.currentTime = 0;
+        guideColdVoiceSfx.muted = true;
+      }
+      if (distantLaughSfx) {
+        distantLaughSfx.pause();
+        distantLaughSfx.currentTime = 0;
+        distantLaughSfx.muted = true;
+      }
+      if (backgroundMusic) {
+        cancelBackgroundMusicIntro();
+        backgroundMusic.pause();
+        backgroundMusic.currentTime = 0;
+        backgroundMusic.volume = 1;
+        backgroundMusic.muted = true;
+      }
+      primeAmbientWind(true);
+      window.__jjs = { SCENES, playScene: (i) => playScene(i), get sceneIndex() { return sceneIndex; } };
+    })();
+  </script>
+</body>
+</html>
