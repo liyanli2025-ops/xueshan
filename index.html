@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#d8d9d3">
   <meta name="format-detection" content="telephone=no">
-  <meta name="jiajinshan-build" content="20261009-79">
+  <meta name="jiajinshan-build" content="20261009-80">
   <title>翻越夹金山｜互动章节</title>
   <link rel="preload" href="video-inputs/storyboards/00-opening.jpg" as="image">
   <style>
@@ -3108,18 +3108,15 @@
         finaleIndex += 1;
         if (finaleIndex >= FINALE.length) {
           finaleComplete = true;
+          // 文字读完才释放尾声循环，让原曲自然走向结尾。
+          if (webMusicSource && backgroundMusicMode === "finale") webMusicSource.loop = false;
           finaleTransitioning = false;
           finaleInner.innerHTML = '<div class="finale-complete">'
             + '<p class="is-visible">翻越夹金山</p>'
             + '<div class="finale-actions">'
-            + '<button class="finale-action" id="exitButton" type="button">退出</button>'
             + '<button class="finale-action" id="replayButton" type="button">重播</button>'
             + '</div></div>';
           const closing = finaleInner.querySelector(".finale-complete");
-          document.getElementById("exitButton").onclick = (event) => {
-            event.stopPropagation();
-            if (window.QQNewsUtils) window.QQNewsUtils.closeCurrentPage();
-          };
           document.getElementById("replayButton").onclick = (event) => {
             event.stopPropagation();
             window.location.reload();
@@ -3548,6 +3545,7 @@
       const MUSIC_MIDDLE_START = 20.98;
       const MUSIC_MIDDLE_END = 36.98;
       const MUSIC_FINALE_START = 52.98;
+      const MUSIC_FINALE_LOOP_END = 68.98;
       const MUSIC_BAR_SECONDS = 2;
       const MUSIC_SEAM_FADE = useMobileDistanceMix ? .56 : .24;
       const MUSIC_SEAM_RECOVER_MS = useMobileDistanceMix ? 720 : 320;
@@ -3630,6 +3628,9 @@
         const finaleGain = windAudioContext.createGain();
         const finaleSource = windAudioContext.createBufferSource();
         finaleSource.buffer = webMusicBuffer;
+        finaleSource.loop = !finaleComplete;
+        finaleSource.loopStart = MUSIC_FINALE_START;
+        finaleSource.loopEnd = MUSIC_FINALE_LOOP_END;
         finaleSource.connect(finaleGain);
         finaleGain.connect(windAudioContext.destination);
 
@@ -3828,7 +3829,7 @@
       }
 
       function requestBackgroundMusicFinale() {
-        if (backgroundMusicFinaleRequested || backgroundMusicMode === "finale") return;
+        if (backgroundMusicMode === "finale") return;
         backgroundMusicFinaleRequested = true;
         if (useMobileDistanceMix) {
           requestWebBackgroundMusicFinale();
@@ -3848,12 +3849,22 @@
         startBackgroundMusicConductor();
       }
 
-      function startBackgroundMusicConductor() {
-        if (backgroundMusicConductorFrame || !backgroundMusic) return;
-        const tick = () => {
-          backgroundMusicConductorFrame = 0;
+      function conductBackgroundMusic() {
           if (isMuted || backgroundMusic.paused || !backgroundMusicStarted) return;
           const now = backgroundMusic.currentTime;
+
+          // 最后两页的阅读时间也属于正片。尾声同和声段持续循环，
+          // 直到结束页出现才继续播放原曲的收束，不提前静音。
+          if (backgroundMusicMode === "finale" && !finaleComplete
+            && !backgroundMusicLoopSeeking && now >= MUSIC_FINALE_LOOP_END - .025) {
+            backgroundMusicLoopSeeking = true;
+            const overflow = Math.max(0, now - MUSIC_FINALE_LOOP_END);
+            const resume = () => { backgroundMusicLoopSeeking = false; };
+            backgroundMusic.addEventListener("seeked", resume, { once: true });
+            backgroundMusic.currentTime = MUSIC_FINALE_START + overflow %
+              (MUSIC_FINALE_LOOP_END - MUSIC_FINALE_START);
+            window.setTimeout(resume, MUSIC_SEEK_FALLBACK_MS);
+          }
 
           if (backgroundMusicMode !== "finale" && !backgroundMusicLoopSeeking) {
             if (backgroundMusicFinaleRequested) {
@@ -3883,16 +3894,41 @@
                   restoreBackgroundMusicBedAfterSeam();
                 };
                 backgroundMusic.addEventListener("seeked", resumeLoop, { once: true });
-                backgroundMusic.currentTime = MUSIC_MIDDLE_START + overflow;
+                backgroundMusic.currentTime = MUSIC_MIDDLE_START + overflow %
+                  (MUSIC_MIDDLE_END - MUSIC_MIDDLE_START);
                 backgroundMusic.volume = 0;
                 window.setTimeout(resumeLoop, MUSIC_SEEK_FALLBACK_MS);
               }
             }
           }
-          backgroundMusicConductorFrame = requestAnimationFrame(tick);
+      }
+
+      function startBackgroundMusicConductor() {
+        if (backgroundMusicConductorFrame || !backgroundMusic) return;
+        const tick = () => {
+          backgroundMusicConductorFrame = 0;
+          conductBackgroundMusic();
+          if (!backgroundMusicConductorFrame && !isMuted && !backgroundMusic.paused && backgroundMusicStarted) {
+            backgroundMusicConductorFrame = requestAnimationFrame(tick);
+          }
         };
         backgroundMusicConductorFrame = requestAnimationFrame(tick);
       }
+
+      // 预览容器可能暂停 RAF；音频事件和定时检查仍能纠正越过循环出口的进度。
+      backgroundMusic.addEventListener("timeupdate", conductBackgroundMusic);
+      window.setInterval(conductBackgroundMusic, 250);
+      backgroundMusic.addEventListener("ended", () => {
+        if (useMobileDistanceMix || isMuted || finaleComplete) return;
+        backgroundMusicLoopSeeking = false;
+        backgroundMusic.currentTime = backgroundMusicMode === "finale"
+          ? MUSIC_FINALE_START : MUSIC_MIDDLE_START;
+        backgroundMusic.volume = backgroundMusicTargetVolume;
+        backgroundMusic.play().then(startBackgroundMusicConductor).catch(() => {
+          musicWaitingForGesture = true;
+          syncSoundState();
+        });
+      });
 
       function fadeInBackgroundMusic() {
         cancelBackgroundMusicIntro();
