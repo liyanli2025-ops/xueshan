@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#d8d9d3">
   <meta name="format-detection" content="telephone=no">
-  <meta name="jiajinshan-build" content="20261009-77">
+  <meta name="jiajinshan-build" content="20261009-78">
   <title>翻越夹金山｜互动章节</title>
   <link rel="preload" href="video-inputs/storyboards/00-opening.jpg" as="image">
   <style>
@@ -70,6 +70,9 @@
     .app {
       position: fixed;
       inset: 0;
+      width: var(--landscape-w, 100%);
+      height: var(--landscape-h, 100%);
+      overflow: hidden;
       display: grid;
       place-items: center;
       isolation: isolate;
@@ -77,18 +80,16 @@
         radial-gradient(circle at 58% 40%, #56615e 0, #252c2a 43%, #111615 100%);
     }
 
-    /* ===== 设计稿 1280×720，整体等比缩放 =====
-       页面内所有字号、间距都是这张设计稿上的固定像素，不用 vw / vh / clamp。
-       手机和 PC 的差别只有一个整体缩放系数 --fit，任何元素的相对关系都不会变。
-       之前用 vw 做字号，视口比例一变每个元素各缩各的，布局必然走形。 */
+    /* ===== 保留 1280×720 的文字尺度，舞台按实际视口展开 =====
+       视频用 cover 等比铺满，文字与按钮留在屏内，不随视频裁切而消失。 */
     .stage {
       /* 绝对居中 + 缩放。不能靠 grid 的 place-items: center——
          布局盒 1280×720 比视口大时，浏览器会退回安全对齐，把它顶到左上角。 */
       position: absolute;
       top: 50%;
       left: 50%;
-      width: 1280px;
-      height: 720px;
+      width: var(--stage-w, 1280px);
+      height: var(--stage-h, 720px);
       transform: translate(-50%, -50%) scale(var(--fit, 1));
       transform-origin: center center;
       overflow: hidden;
@@ -340,9 +341,7 @@
 
     .hotspot {
       position: absolute;
-      /* 直接使用成片的 1280×720 像素坐标。
-         舞台始终统一等比缩放，因此 PC、横屏手机和强制旋转后的竖屏手机
-         都会与视频同比例移动，不再受视口宽高比或百分比换算影响。 */
+      /* 基准坐标由 syncHotspotPosition 按视频 cover 后的偏移校准。 */
       left: var(--hotspot-x, 530px);
       top: var(--hotspot-y, 484px);
       width: var(--hotspot-w, 18%);
@@ -599,14 +598,13 @@
     .app.is-marching .beat-caption { bottom: 34%; }
     .app.is-marching .dialogue { bottom: 34%; }
 
-    /* ===== 飘雪：用实拍素材，不用 CSS 画斜线 ===== */
+    /* ===== 飘雪：独立 Canvas 粒子，不占用额外视频解码器 ===== */
     .snowfall {
       position: absolute;
       z-index: 5;
       inset: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover;
       mix-blend-mode: screen;
       opacity: 0;
       pointer-events: none;
@@ -1227,8 +1225,8 @@
       inset: auto;
       top: 50%;
       left: 50%;
-      width: 1280px;
-      height: 720px;
+      width: var(--stage-w, 1280px);
+      height: var(--stage-h, 720px);
       transform: translate(-50%, -50%) scale(var(--fit, 1));
       transform-origin: center center;
     }
@@ -1456,6 +1454,8 @@
         height: 100vw;
         width: 100dvh;
         height: 100dvw;
+        width: var(--landscape-w, 100dvh);
+        height: var(--landscape-h, 100dvw);
         transform: translate(-50%, -50%) rotate(90deg);
         transform-origin: center center;
       }
@@ -1492,7 +1492,7 @@
       <div class="poster" id="poster" aria-hidden="true"></div>
       <video class="scene-loop" id="sceneLoop" muted autoplay loop playsinline webkit-playsinline preload="auto"
              poster="assets/prologue-poster.jpg" aria-hidden="true"></video>
-      <video class="snowfall" id="snowfall" muted autoplay loop playsinline webkit-playsinline preload="none" aria-hidden="true"></video>
+      <canvas class="snowfall" id="snowfall" aria-hidden="true"></canvas>
       <div class="wash" aria-hidden="true"></div>
       <div class="shade" aria-hidden="true"></div>
       <div class="grain" aria-hidden="true"></div>
@@ -2061,10 +2061,11 @@
 
       // ===== 装饰视频的自动播放兜底 =====
       // iOS 和微信 WebView 只在「用户手势的同步调用栈里」才放行 play()。
-      const ambientVideos = [sceneLoop, snowfall].filter(Boolean);
+      const ambientVideos = [sceneLoop].filter(Boolean);
 
       function snowVisible() {
-        return parseFloat(getComputedStyle(snowfall).opacity) > 0.01;
+        return hasStarted && app.classList.contains("is-playing")
+          && !app.classList.contains("is-finale") && !document.hidden;
       }
 
       function unlockAmbient(event) {
@@ -2072,7 +2073,6 @@
           video.muted = true;
           if (!video.src || !video.paused) return;
           if (video === sceneLoop && sceneLoop.classList.contains("is-hidden")) return;
-          if (video === snowfall && !snowVisible()) return;
           video.play().catch(() => {});
         });
         // 声音按钮由自己的点击逻辑处理，避免捕获阶段先开启、点击阶段又关闭。
@@ -2088,36 +2088,118 @@
         if (!document.hidden) unlockAmbient();
       });
 
+      const snowContext = snowfall.getContext("2d", { alpha: true });
+      const snowParticles = [];
+      let snowFrame = 0;
+      let snowLastTime = 0;
+      let snowWidth = 1280;
+      let snowHeight = 720;
+      const softSnow = document.createElement("canvas");
+      softSnow.width = softSnow.height = 32;
+      const softContext = softSnow.getContext("2d");
+      const softGradient = softContext.createRadialGradient(16, 16, 0, 16, 16, 16);
+      softGradient.addColorStop(0, "rgba(255,255,255,.95)");
+      softGradient.addColorStop(.35, "rgba(255,255,255,.7)");
+      softGradient.addColorStop(1, "rgba(255,255,255,0)");
+      softContext.fillStyle = softGradient;
+      softContext.fillRect(0, 0, 32, 32);
+
+      function resizeSnowfall(width, height, scale) {
+        snowWidth = width;
+        snowHeight = height;
+        const density = Math.min(1.5, Math.max(.5, scale * (window.devicePixelRatio || 1)));
+        snowfall.width = Math.ceil(width * density);
+        snowfall.height = Math.ceil(height * density);
+        snowContext?.setTransform(density, 0, 0, density, 0, 0);
+        const count = Math.min(220, Math.round(width * height / 6500));
+        snowParticles.length = 0;
+        for (let i = 0; i < count; i++) {
+          const depth = .3 + Math.random() * .7;
+          snowParticles.push({ x: Math.random() * width, y: Math.random() * height,
+            size: 2 + depth * 7, speed: 40 + depth * 90,
+            drift: -25 - depth * 55, phase: Math.random() * Math.PI * 2,
+            alpha: .35 + Math.random() * .55 });
+        }
+      }
+
+      function drawSnowfall(now) {
+        snowFrame = 0;
+        if (!snowContext || !snowVisible()) { snowLastTime = 0; return; }
+        const delta = snowLastTime ? Math.min(.05, (now - snowLastTime) / 1000) : 0;
+        snowLastTime = now;
+        snowContext.clearRect(0, 0, snowWidth, snowHeight);
+        for (const flake of snowParticles) {
+          flake.x += (flake.drift + Math.sin(now / 1800 + flake.phase) * 12) * delta;
+          flake.y += flake.speed * delta;
+          if (flake.y > snowHeight + flake.size) { flake.y = -flake.size; flake.x = Math.random() * snowWidth; }
+          if (flake.x < -flake.size) flake.x = snowWidth + flake.size;
+          snowContext.globalAlpha = flake.alpha;
+          snowContext.drawImage(softSnow, flake.x, flake.y, flake.size, flake.size);
+        }
+        snowFrame = requestAnimationFrame(drawSnowfall);
+      }
+
       function wakeSnowfall() {
-        if (!snowfall || !snowfall.dataset.loaded) return;
-        if (snowfall.paused) snowfall.play().catch(() => {});
+        if (!snowFrame && snowVisible()) snowFrame = requestAnimationFrame(drawSnowfall);
       }
       function settleSnowfall() {
-        if (!snowfall || !snowfall.dataset.loaded) return;
         if (snowVisible()) wakeSnowfall();
-        else if (!snowfall.paused) snowfall.pause();
+        else { cancelAnimationFrame(snowFrame); snowFrame = 0; snowLastTime = 0; }
       }
-      new MutationObserver(() => {
-        wakeSnowfall();
-        window.setTimeout(settleSnowfall, 1300);
-      }).observe(app, { attributes: true, attributeFilter: ["class", "style"] });
-      if (snowfall) snowfall.addEventListener("transitionend", settleSnowfall);
+      new MutationObserver(settleSnowfall).observe(app,
+        { attributes: true, attributeFilter: ["class"] });
+      document.addEventListener("visibilitychange", settleSnowfall);
+      window.addEventListener("pageshow", settleSnowfall);
 
       // ===== 等比缩放：设计稿 1280×720 =====
       const DESIGN_W = 1280;
       const DESIGN_H = 720;
 
       function fitStage() {
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
+        const viewport = window.visualViewport;
+        const vw = viewport && viewport.scale === 1 ? viewport.width : window.innerWidth;
+        const vh = viewport && viewport.scale === 1 ? viewport.height : window.innerHeight;
         const portrait = vh > vw;
         const availW = portrait ? vh : vw;
         const availH = portrait ? vw : vh;
-        document.documentElement.style.setProperty(
-          "--fit", Math.min(availW / DESIGN_W, availH / DESIGN_H).toFixed(4));
+        const fit = Math.max(.01, Math.min(availW / DESIGN_W, availH / DESIGN_H));
+        const root = document.documentElement.style;
+        root.setProperty("--landscape-w", `${availW}px`);
+        root.setProperty("--landscape-h", `${availH}px`);
+        root.setProperty("--fit", fit.toFixed(6));
+        root.setProperty("--stage-w", `${availW / fit}px`);
+        root.setProperty("--stage-h", `${availH / fit}px`);
+        resizeSnowfall(availW / fit, availH / fit, fit);
+        wakeSnowfall();
+        syncHotspotPosition();
       }
+
+      function syncHotspotPosition() {
+        const point = { chili: [530, 484], stick: [365, 400] }[interaction.dataset.target];
+        if (!point) return;
+        const stage = document.getElementById("stage");
+        const video = films[activeFilm];
+        const videoWidth = video.videoWidth || DESIGN_W;
+        const videoHeight = video.videoHeight || DESIGN_H;
+        const width = stage.clientWidth;
+        const height = stage.clientHeight;
+        const cover = Math.max(width / videoWidth, height / videoHeight);
+        const renderedWidth = videoWidth * cover;
+        const renderedHeight = videoHeight * cover;
+        interaction.style.setProperty("--hotspot-x",
+          `${(width - renderedWidth) / 2 + point[0] / DESIGN_W * renderedWidth}px`);
+        interaction.style.setProperty("--hotspot-y",
+          `${(height - renderedHeight) / 2 + point[1] / DESIGN_H * renderedHeight}px`);
+      }
+      new MutationObserver(syncHotspotPosition).observe(interaction,
+        { attributes: true, attributeFilter: ["data-target"] });
+      films.forEach((film) => {
+        film.addEventListener("loadedmetadata", syncHotspotPosition);
+        film.addEventListener("resize", syncHotspotPosition);
+      });
       fitStage();
       window.addEventListener("resize", fitStage);
+      window.visualViewport?.addEventListener("resize", fitStage);
       window.addEventListener("orientationchange", () => window.setTimeout(fitStage, 120));
 
       // ===== 文字 =====
@@ -4009,13 +4091,7 @@
         poster.classList.add("is-gone");
         emit("start");
 
-        // 只在用户手势里完成一次解锁
-        if (snowfall && !snowfall.dataset.loaded) {
-          snowfall.dataset.loaded = "1";
-          snowfall.muted = true;
-          snowfall.src = CAN_VP9 ? "assets/snow-loop.webm" : "assets/snow-loop.mp4";
-          snowfall.play().catch(() => {});
-        }
+        wakeSnowfall();
 
         unlockStoryFilms();
 
@@ -4036,7 +4112,15 @@
         loop.classList.add("is-ready");
         app.classList.add("has-loop");
         prologue.classList.add("has-loop");
-        loop.addEventListener("error", () => loop.removeAttribute("src"), { once: true });
+        // 预判支持 WebM 不代表具体素材能解码；失败时只回退此装饰视频。
+        let loopFallback = !CAN_VP9;
+        loop.addEventListener("error", () => {
+          if (loopFallback) return;
+          loopFallback = true;
+          loop.src = "generated-videos/prologue-mountain-loop.mp4";
+          loop.load();
+          loop.play().catch(() => {});
+        });
         loop.muted = true;
         loop.src = CAN_VP9
           ? "generated-videos/prologue-mountain-loop.webm"
