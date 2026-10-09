@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#d8d9d3">
   <meta name="format-detection" content="telephone=no">
-  <meta name="jiajinshan-build" content="20260907-76">
+  <meta name="jiajinshan-build" content="20261009-77">
   <title>翻越夹金山｜互动章节</title>
   <link rel="preload" href="video-inputs/storyboards/00-opening.jpg" as="image">
   <style>
@@ -2022,6 +2022,11 @@
       let webMusicSource = null;
       let webMusicGain = null;
       let webMusicStartsAt = 0;
+      let musicWaitingForGesture = false;
+      let musicLoadFailed = false;
+      let musicRetryTimer = 0;
+      let musicRetryCount = 0;
+      let musicNeedsRestore = false;
       let guideVoiceBuffer = null;
       let guideVoiceLoading = null;
       let guideVoiceSource = null;
@@ -2062,7 +2067,7 @@
         return parseFloat(getComputedStyle(snowfall).opacity) > 0.01;
       }
 
-      function unlockAmbient() {
+      function unlockAmbient(event) {
         ambientVideos.forEach((video) => {
           video.muted = true;
           if (!video.src || !video.paused) return;
@@ -2070,6 +2075,8 @@
           if (video === snowfall && !snowVisible()) return;
           video.play().catch(() => {});
         });
+        // 声音按钮由自己的点击逻辑处理，避免捕获阶段先开启、点击阶段又关闭。
+        if (event?.target?.closest?.("#soundButton")) return;
         if (!isMuted) primeAmbientWind(false);
       }
 
@@ -3399,12 +3406,7 @@
       async function ensureWebWind() {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (!AudioContextClass || !ambientWind) return false;
-        if (!windAudioContext) {
-          windAudioContext = new AudioContextClass();
-          windGain = windAudioContext.createGain();
-          windGain.gain.value = 0;
-          windGain.connect(windAudioContext.destination);
-        }
+        if (!ensureSharedAudioContext()) return false;
         if (windAudioContext.state === "suspended") {
           try { await windAudioContext.resume(); } catch (_) { return false; }
         }
@@ -3491,6 +3493,13 @@
           windGain = windAudioContext.createGain();
           windGain.gain.value = 0;
           windGain.connect(windAudioContext.destination);
+          windAudioContext.addEventListener("statechange", () => {
+            syncSoundState();
+            if (useMobileDistanceMix && !isMuted && !document.hidden
+              && windAudioContext.state === "running" && (!webMusicSource || musicNeedsRestore)) {
+              primeWebBackgroundMusic();
+            }
+          });
         }
         if (useMobileDistanceMix && muteStoryVideoAudioOnMobile) {
           films.forEach((film) => {
@@ -3575,29 +3584,74 @@
         backgroundMusicTargetVolume = MUSIC_FINALE_PEAK_VOLUME;
       }
 
-      async function primeWebBackgroundMusic() {
-        if (isMuted) return;
-        const context = ensureSharedAudioContext();
-        if (!context) return;
-        if (context.state === "suspended") {
-          try { await context.resume(); } catch (_) {}
-        }
-        if (webMusicSource) {
-          fadeWebBackgroundMusicTo(backgroundMusicTargetVolume, 260);
-          return;
-        }
+      function ensureWebBackgroundMusicBuffer(context) {
+        if (webMusicBuffer) return Promise.resolve(webMusicBuffer);
         if (!webMusicLoading) {
-          webMusicLoading = fetch(backgroundMusic.currentSrc || backgroundMusic.src)
+          musicLoadFailed = false;
+          const controller = new AbortController();
+          const timeout = window.setTimeout(() => controller.abort(), 15000);
+          webMusicLoading = fetch(backgroundMusic.currentSrc || backgroundMusic.src,
+            { signal: controller.signal })
             .then((response) => {
               if (!response.ok) throw new Error("music-fetch-failed");
               return response.arrayBuffer();
             })
             .then((data) => context.decodeAudioData(data))
-            .then((buffer) => { webMusicBuffer = buffer; return buffer; })
-            .catch(() => null);
+            .then((buffer) => {
+              webMusicBuffer = buffer;
+              musicRetryCount = 0;
+              return buffer;
+            })
+            .catch(() => {
+              musicLoadFailed = true;
+              if (!musicRetryTimer && musicRetryCount < 3 && !isMuted && !document.hidden) {
+                musicRetryCount += 1;
+                musicRetryTimer = window.setTimeout(() => {
+                  musicRetryTimer = 0;
+                  primeWebBackgroundMusic();
+                }, 1000 * musicRetryCount);
+              }
+              return null;
+            })
+            .finally(() => {
+              window.clearTimeout(timeout);
+              webMusicLoading = null;
+              syncSoundState();
+            });
         }
-        const buffer = webMusicBuffer || await webMusicLoading;
-        if (!buffer || webMusicSource || isMuted) return;
+        return webMusicLoading;
+      }
+
+      async function primeWebBackgroundMusic() {
+        if (isMuted || document.hidden) return;
+        const context = ensureSharedAudioContext();
+        if (!context) {
+          musicLoadFailed = true;
+          syncSoundState();
+          return;
+        }
+        // 先预载，不等待可能被自动播放策略挂起的 resume()。
+        const loading = webMusicSource ? null : ensureWebBackgroundMusicBuffer(context);
+        if (context.state !== "running") {
+          musicWaitingForGesture = true;
+          context.resume().then(() => {
+            syncSoundState();
+            if (context.state === "running" && (!webMusicSource || musicNeedsRestore)) {
+              primeWebBackgroundMusic();
+            }
+          }).catch(() => { musicWaitingForGesture = true; syncSoundState(); });
+        }
+        syncSoundState();
+        if (webMusicSource) {
+          if (context.state === "running" && musicNeedsRestore) {
+            musicNeedsRestore = false;
+            fadeWebBackgroundMusicTo(backgroundMusicTargetVolume, 260);
+          }
+          return;
+        }
+        const buffer = await loading;
+        if (!buffer || webMusicSource || isMuted || document.hidden
+          || context.state !== "running") return;
 
         webMusicGain = context.createGain();
         webMusicGain.gain.value = 0;
@@ -3614,6 +3668,9 @@
         webMusicSource.start(webMusicStartsAt, 0);
         backgroundMusicStarted = true;
         backgroundMusicStarting = false;
+        musicWaitingForGesture = false;
+        musicNeedsRestore = false;
+        syncSoundState();
         if (backgroundMusicFinaleRequested) requestWebBackgroundMusicFinale();
       }
 
@@ -3795,33 +3852,56 @@
         if (!backgroundMusic || isMuted || backgroundMusicStarting) return;
         backgroundMusic.muted = false;
         if (backgroundMusicStarted) {
-          backgroundMusic.volume = backgroundMusicTargetVolume;
           if (backgroundMusicFinaleRequested && backgroundMusicMode !== "finale") {
             enterBackgroundMusicFinale();
           } else if (backgroundMusic.paused) {
-            backgroundMusic.play().then(startBackgroundMusicConductor).catch(() => {});
+            backgroundMusic.volume = backgroundMusicTargetVolume;
+            backgroundMusic.play().then(() => {
+              musicWaitingForGesture = false;
+              musicLoadFailed = false;
+              syncSoundState();
+              startBackgroundMusicConductor();
+            }).catch((error) => {
+              musicWaitingForGesture = error?.name === "NotAllowedError";
+              musicLoadFailed = !musicWaitingForGesture;
+              syncSoundState();
+            });
           } else {
             startBackgroundMusicConductor();
           }
           return;
         }
         backgroundMusicStarting = true;
+        if (backgroundMusic.error) backgroundMusic.load();
         backgroundMusic.currentTime = 0;
         backgroundMusic.volume = 0;
         const started = backgroundMusic.play();
         const ready = () => {
           backgroundMusicStarted = true;
           backgroundMusicStarting = false;
+          musicWaitingForGesture = false;
+          musicLoadFailed = false;
+          syncSoundState();
           if (backgroundMusicFinaleRequested) enterBackgroundMusicFinale();
           else fadeInBackgroundMusic();
         };
-        const blocked = () => { backgroundMusicStarting = false; };
+        const blocked = (error) => {
+          backgroundMusicStarting = false;
+          musicWaitingForGesture = error?.name === "NotAllowedError";
+          musicLoadFailed = !musicWaitingForGesture;
+          syncSoundState();
+        };
         if (started && started.then) started.then(ready).catch(blocked);
         else ready();
       }
 
       function toggleSound() {
-        isMuted = !isMuted;
+        const musicRunning = useMobileDistanceMix
+          ? !!webMusicSource && windAudioContext?.state === "running"
+          : backgroundMusicStarted && !backgroundMusic.paused;
+        // 未解锁/加载失败时按钮用于开启或重试，而不是把静默页面切到静音。
+        isMuted = !isMuted && musicRunning;
+        if (!isMuted) musicRetryCount = 0;
         films.forEach((film, index) => {
           const forcedSilent = index === activeFilm
             && Boolean(SCENES[sceneIndex] && SCENES[sceneIndex].muteVideoAudio);
@@ -3849,7 +3929,10 @@
         }
         if (backgroundMusic) {
           if (useMobileDistanceMix) {
-            if (isMuted) fadeWebBackgroundMusicTo(0, 300);
+            if (isMuted) {
+              musicNeedsRestore = true;
+              fadeWebBackgroundMusicTo(0, 300);
+            }
             else primeBackgroundMusic();
           } else {
             if (isMuted) {
@@ -3865,10 +3948,35 @@
         emit("sound", { muted: isMuted });
       }
       function syncSoundState() {
-        soundButton.classList.toggle("is-muted", isMuted);
-        soundButton.textContent = isMuted ? "声音关" : "声音开";
-        soundButton.setAttribute("aria-label", isMuted ? "开启声音" : "关闭声音");
+        const musicRunning = useMobileDistanceMix
+          ? !!webMusicSource && windAudioContext?.state === "running"
+          : backgroundMusicStarted && !backgroundMusic.paused;
+        const needsGesture = musicWaitingForGesture
+          || (useMobileDistanceMix && windAudioContext?.state !== "running");
+        soundButton.classList.toggle("is-muted", isMuted || !musicRunning);
+        soundButton.textContent = isMuted ? "声音关" : musicRunning ? "声音开"
+          : musicLoadFailed ? "点此重试" : needsGesture ? "轻触开声" : "声音准备中";
+        soundButton.setAttribute("aria-label", isMuted ? "开启声音"
+          : musicRunning ? "关闭声音" : "轻触以开启或重试声音");
       }
+
+      backgroundMusic.addEventListener("playing", () => {
+        musicWaitingForGesture = false;
+        musicLoadFailed = false;
+        syncSoundState();
+      });
+      backgroundMusic.addEventListener("pause", syncSoundState);
+      backgroundMusic.addEventListener("error", () => {
+        if (!useMobileDistanceMix) {
+          musicLoadFailed = true;
+          backgroundMusicStarting = false;
+          syncSoundState();
+        }
+      });
+      window.addEventListener("online", () => {
+        musicRetryCount = 0;
+        if (!isMuted) primeAmbientWind();
+      });
 
       // ===== 开场 =====
       // 第一次“继续”的用户手势同时解锁三路正片。片名卡随后可自动退场，
