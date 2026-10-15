@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#d8d9d3">
   <meta name="format-detection" content="telephone=no">
-  <meta name="jiajinshan-build" content="20261009-81">
+  <meta name="jiajinshan-build" content="20261015-82">
   <title>翻越夹金山｜互动章节</title>
   <link rel="preload" href="video-inputs/storyboards/00-opening.jpg" as="image">
   <style>
@@ -323,6 +323,52 @@
     }
 
     .sound.is-muted::before { background: transparent; box-shadow: none; }
+
+    /* 开场联合标识：独立于前言/正片切换，沿用舞台尺度与横屏方向。 */
+    .brand-intro {
+      position: absolute;
+      z-index: 35;
+      top: 50%;
+      left: 50%;
+      width: var(--stage-w, 1280px);
+      height: var(--stage-h, 720px);
+      transform: translate(-50%, -50%) scale(var(--fit, 1));
+      transform-origin: center;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 1.2s ease;
+    }
+    .brand-intro.is-fading { opacity: 0; }
+    .brand-intro-logos {
+      position: absolute;
+      top: max(18px, env(safe-area-inset-top));
+      right: max(26px, env(safe-area-inset-right));
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .brand-xuexi {
+      position: relative;
+      display: block;
+      width: 112px;
+      height: 50px;
+      overflow: hidden;
+    }
+    /* 仅在排版中收掉原图透明留白，不重绘、不拉伸品牌图形。 */
+    .brand-xuexi img {
+      position: absolute;
+      width: 142.3px;
+      height: auto;
+      left: -13.7px;
+      top: -10.9px;
+    }
+    .brand-news { display: block; width: 154px; height: auto; }
+    .sound { transition: opacity .45s ease; }
+    body.brand-intro-on .sound {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
 
     @keyframes breathe {
       0%, 100% { opacity: .55; transform: scale(.82); }
@@ -1474,7 +1520,7 @@
     }
   </style>
 </head>
-<body>
+<body class="brand-intro-on">
   <audio id="ambientWind" src="assets/audio/wind-background-loop.mp3" preload="auto" loop></audio>
   <audio id="backgroundMusic" src="assets/audio/toward-the-mountains-background-dynamic-v3.mp3" preload="auto"></audio>
   <audio id="fallSfx" src="assets/audio/fall-impact.mp3" preload="auto"></audio>
@@ -1629,6 +1675,51 @@
     </div>
   </div>
 
+  <div class="brand-intro" id="brandIntro" role="group" aria-label="学习强国、腾讯新闻">
+    <div class="brand-intro-logos">
+      <span class="brand-xuexi"><img src="assets/brands/xuexi-logo.png" alt="学习强国" width="1042" height="568" decoding="async"></span>
+      <img class="brand-news" src="assets/brands/tencent-news-logo.png" alt="腾讯新闻" width="2877" height="596" decoding="async">
+    </div>
+  </div>
+  <script>
+    (() => {
+      const layer = document.getElementById("brandIntro");
+      let remaining = 10000;
+      let startedAt = 0;
+      let timer = 0;
+      let ready = false;
+      let fading = false;
+      function finish() {
+        fading = true;
+        layer.classList.add("is-fading");
+        document.removeEventListener("visibilitychange", schedule);
+        window.setTimeout(() => {
+          layer.remove();
+          document.body.classList.remove("brand-intro-on");
+        }, 1250);
+      }
+      function schedule() {
+        if (!ready || fading) return;
+        if (timer) {
+          clearTimeout(timer);
+          remaining = Math.max(0, remaining - (performance.now() - startedAt));
+          timer = 0;
+        }
+        if (!document.hidden) {
+          startedAt = performance.now();
+          timer = window.setTimeout(finish, remaining);
+        }
+      }
+      document.addEventListener("visibilitychange", schedule);
+      Promise.all([...layer.querySelectorAll("img")].map(img => new Promise(resolve => {
+        if (img.complete) resolve();
+        else {
+          img.addEventListener("load", resolve, { once: true });
+          img.addEventListener("error", resolve, { once: true });
+        }
+      }))).then(() => { ready = true; schedule(); });
+    })();
+  </script>
   <script src="https://mat1.gtimg.com/qqcdn/tnewsh5/jsapi/1.3.9-beta7/qqnews-jsapi.min.js"></script>
   <script src="qqnews-utils.js"></script>
   <script>
