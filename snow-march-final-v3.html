@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#d8d9d3">
   <meta name="format-detection" content="telephone=no">
-  <meta name="jiajinshan-build" content="20261015-82">
+  <meta name="jiajinshan-build" content="20261015-83">
   <title>翻越夹金山｜互动章节</title>
   <link rel="preload" href="video-inputs/storyboards/00-opening.jpg" as="image">
   <style>
@@ -348,21 +348,18 @@
       gap: 20px;
     }
     .brand-xuexi {
-      position: relative;
       display: block;
-      width: 112px;
-      height: 50px;
-      overflow: hidden;
+      flex: 0 0 auto;
+      width: 142px;
     }
-    /* 仅在排版中收掉原图透明留白，不重绘、不拉伸品牌图形。 */
+    /* 品牌原图完整呈现，包括透明留白；只等比缩放，不裁切、不偏移。 */
     .brand-xuexi img {
-      position: absolute;
-      width: 142.3px;
+      display: block;
+      width: 100%;
       height: auto;
-      left: -13.7px;
-      top: -10.9px;
+      object-fit: contain;
     }
-    .brand-news { display: block; width: 154px; height: auto; }
+    .brand-news { display: block; flex: 0 0 auto; width: 154px; height: auto; object-fit: contain; }
     .sound { transition: opacity .45s ease; }
     body.brand-intro-on .sound {
       opacity: 0;
