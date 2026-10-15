@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#d8d9d3">
   <meta name="format-detection" content="telephone=no">
-  <meta name="jiajinshan-build" content="20261015-83">
+  <meta name="jiajinshan-build" content="20261015-84">
   <title>翻越夹金山｜互动章节</title>
   <link rel="preload" href="video-inputs/storyboards/00-opening.jpg" as="image">
   <style>
@@ -339,6 +339,30 @@
       transition: opacity 1.2s ease;
     }
     .brand-intro.is-fading { opacity: 0; }
+    .ai-disclosure {
+      position: absolute;
+      z-index: 35;
+      top: 50%;
+      left: 50%;
+      width: var(--stage-w, 1280px);
+      height: var(--stage-h, 720px);
+      transform: translate(-50%, -50%) scale(var(--fit, 1));
+      transform-origin: center;
+      pointer-events: none;
+    }
+    .ai-disclosure small {
+      position: absolute;
+      left: max(24px, env(safe-area-inset-left));
+      bottom: max(16px, env(safe-area-inset-bottom));
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.5;
+      letter-spacing: .04em;
+      white-space: nowrap;
+      color: rgba(255, 255, 255, .78);
+      text-shadow: 0 1px 4px rgba(0, 0, 0, .85);
+    }
     .brand-intro-logos {
       position: absolute;
       top: max(18px, env(safe-area-inset-top));
@@ -1672,6 +1696,7 @@
     </div>
   </div>
 
+  <div class="ai-disclosure"><small>画面由AI辅助生成</small></div>
   <div class="brand-intro" id="brandIntro" role="group" aria-label="学习强国、腾讯新闻">
     <div class="brand-intro-logos">
       <span class="brand-xuexi"><img src="assets/brands/xuexi-logo.png" alt="学习强国" width="1042" height="568" decoding="async"></span>
